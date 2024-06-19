@@ -53,6 +53,7 @@ import com.leonardobishop.quests.bukkit.questcompleter.BukkitQuestCompleter;
 import com.leonardobishop.quests.bukkit.questcontroller.NormalQuestController;
 import com.leonardobishop.quests.bukkit.runnable.QuestsAutoSaveRunnable;
 import com.leonardobishop.quests.bukkit.scheduler.ServerScheduler;
+import com.leonardobishop.quests.bukkit.scheduler.WrappedRunnable;
 import com.leonardobishop.quests.bukkit.scheduler.WrappedTask;
 import com.leonardobishop.quests.bukkit.scheduler.bukkit.BukkitServerSchedulerAdapter;
 import com.leonardobishop.quests.bukkit.scheduler.folia.FoliaServerScheduler;
@@ -204,7 +205,7 @@ public class BukkitQuestsPlugin extends JavaPlugin implements Quests {
     private VersionSpecificHandler versionSpecificHandler;
 
     private LogHistory logHistory;
-    private WrappedTask questAutoSaveTask;
+    private WrappedRunnable questAutoSaveRunnable;
     private WrappedTask questQueuePollTask;
     private BiFunction<Player, String, String> placeholderAPIProcessor;
 
@@ -666,10 +667,10 @@ public class BukkitQuestsPlugin extends JavaPlugin implements Quests {
 
             final long autoSaveInterval = this.getConfig().getLong("options.performance-tweaking.quest-autosave-interval", 12000);
             try {
-                if (this.questAutoSaveTask != null) {
-                    this.questAutoSaveTask.cancel();
+                if (this.questAutoSaveRunnable != null) {
+                    this.questAutoSaveRunnable.cancel();
                 }
-                this.questAutoSaveTask = this.serverScheduler.runTaskTimer(() -> new QuestsAutoSaveRunnable(this), autoSaveInterval, autoSaveInterval);
+                this.serverScheduler.runTaskTimer(this.questAutoSaveRunnable = new QuestsAutoSaveRunnable(this), autoSaveInterval, autoSaveInterval);
             } catch (final Exception e) {
                 this.questsLogger.debug("Cannot cancel and restart quest autosave task");
             }
