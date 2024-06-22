@@ -542,7 +542,7 @@ public class BukkitQuestsPlugin extends JavaPlugin implements Quests {
             throw new IllegalArgumentException(bukkitVersion, new ArrayIndexOutOfBoundsException());
         }
 
-        final String minorVersionPart = bukkitVersionParts[1];
+        final String minorVersionPart = bukkitVersionParts[1].split("-")[0];
         try {
             return Integer.parseInt(minorVersionPart);
         } catch (final NumberFormatException e) {
