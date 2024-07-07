@@ -396,7 +396,7 @@ public class NormalQuestController implements QuestController {
                 final QItemStack item = this.plugin.getQItemStackRegistry().getQuestItemStack(trackedQuest);
                 final String displayName = item.getName();
                 final String displayNameStripped = Chat.legacyStrip(displayName);
-                Messages.QUEST_TRACK.send(player, "{questcolored}", displayName, "{quest}", displayNameStripped);
+                Messages.QUEST_TRACK_STOP.send(player, "{questcolored}", displayName, "{quest}", displayNameStripped);
             }
 
             // return and handle quest != null case
