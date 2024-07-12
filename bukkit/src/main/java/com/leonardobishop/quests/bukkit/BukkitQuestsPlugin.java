@@ -541,7 +541,7 @@ public class BukkitQuestsPlugin extends JavaPlugin implements Quests {
 
         final String[] bukkitVersionParts = bukkitVersion.split("\\.", 3);
         if (bukkitVersionParts.length < 2) {
-            throw new IllegalArgumentException(bukkitVersion, new ArrayIndexOutOfBoundsException());
+            throw new IllegalArgumentException(bukkitVersion, new ArrayIndexOutOfBoundsException(bukkitVersionParts.length));
         }
 
         final String minorVersionPart = bukkitVersionParts[1].split("-")[0];
