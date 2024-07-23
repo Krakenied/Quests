@@ -74,7 +74,7 @@ dependencies {
     // CoreProtect
     compileOnlyPlugin("net.coreprotect:coreprotect:21.2")
     // CustomFishing
-    compileOnlyPlugin("com.github.Xiao-MoMi:Custom-Fishing:2.1.2")
+    compileOnlyPlugin("com.github.Xiao-MoMi:Custom-Fishing:2.2.4")
     // EcoBosses, EcoMobs
     compileOnlyPlugin("com.willfp:EcoBosses:9.14.0")
     compileOnlyPlugin("com.willfp:EcoMobs:10.0.0-b1")
