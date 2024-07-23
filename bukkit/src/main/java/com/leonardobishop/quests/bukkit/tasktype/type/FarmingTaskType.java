@@ -156,6 +156,7 @@ public final class FarmingTaskType extends BukkitTaskType {
                     super.debug("PlayerBlockTracker lookup OK", quest.getId(), task.getId(), player.getUniqueId());
                 } else {
                     super.debug("check-playerblocktracker is enabled, but PlayerBlockTracker is not detected on the server", quest.getId(), task.getId(), player.getUniqueId());
+                    continue; // we want to prevent progressing in quest if PBT failed to start and was expected to
                 }
             }
 
