@@ -573,12 +573,14 @@ public class BukkitQuestsPlugin extends JavaPlugin implements Quests {
                 sb.append(skipped).append(" skipped due to exclusions or conflicting names");
             }
 
-            if (skipped * unsupported > 0) {
-                sb.append(',').append(' ');
-            }
+            if (Boolean.getBoolean("Quests.ShowNotSupportedCount")) {
+                if (skipped * unsupported > 0) {
+                    sb.append(',').append(' ');
+                }
 
-            if (unsupported > 0) {
-                sb.append(unsupported).append(" not supported");
+                if (unsupported > 0) {
+                    sb.append(unsupported).append(" not supported");
+                }
             }
 
             sb.append(')');
