@@ -4,6 +4,7 @@ import com.leonardobishop.quests.bukkit.BukkitQuestsPlugin;
 import com.leonardobishop.quests.bukkit.scheduler.WrappedRunnable;
 import com.leonardobishop.quests.bukkit.scheduler.WrappedTask;
 import org.bukkit.entity.Player;
+import org.bukkit.scheduler.BukkitRunnable;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayDeque;
@@ -11,7 +12,7 @@ import java.util.Deque;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
-public final class QuestsAutoSaveRunnable extends WrappedRunnable {
+public final class QuestsAutoSaveRunnable extends BukkitRunnable {
 
     private final BukkitQuestsPlugin plugin;
     private final Deque<UUID> saveDeque;
