@@ -39,6 +39,9 @@ public final class VaultHook implements AbstractVaultHook {
         }
 
         this.economy = esp.getProvider();
+
+        // Log that we hooked successfully
+        this.plugin.getLogger().info("Successfully hooked into " + esp.getPlugin().getName() + " economy.");
     }
 
     @Override
