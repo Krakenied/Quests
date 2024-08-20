@@ -34,6 +34,8 @@ import com.leonardobishop.quests.bukkit.hook.title.QuestsTitle;
 import com.leonardobishop.quests.bukkit.hook.title.Title_Bukkit;
 import com.leonardobishop.quests.bukkit.hook.title.Title_BukkitNoTimings;
 import com.leonardobishop.quests.bukkit.hook.title.Title_Nothing;
+import com.leonardobishop.quests.bukkit.hook.vault.AbstractVaultHook;
+import com.leonardobishop.quests.bukkit.hook.vault.VaultHook;
 import com.leonardobishop.quests.bukkit.hook.versionspecific.VersionSpecificHandler;
 import com.leonardobishop.quests.bukkit.hook.versionspecific.VersionSpecificHandler11;
 import com.leonardobishop.quests.bukkit.hook.versionspecific.VersionSpecificHandler16;
@@ -198,6 +200,7 @@ public class BukkitQuestsPlugin extends JavaPlugin implements Quests {
     private AbstractCoreProtectHook coreProtectHook;
     private AbstractEssentialsHook essentialsHook;
     private AbstractPlayerBlockTrackerHook playerBlockTrackerHook;
+    private AbstractVaultHook vaultHook;
     private AbstractWildStackerHook wildStackerHook;
     private ItemGetter itemGetter;
     private SkullGetter skullGetter;
@@ -416,6 +419,9 @@ public class BukkitQuestsPlugin extends JavaPlugin implements Quests {
                 this.playerBlockTrackerHook = new PlayerBlockTrackerHook(pluginClazz, isTrackedMethod);
             } catch (ClassCastException | ClassNotFoundException | NoSuchMethodException ignored) {
             }
+
+            // Plugin checks are handled in the hook class
+            this.vaultHook = new VaultHook(this);
 
             if (CompatUtils.isPluginEnabled("WildStacker")) {
                 this.wildStackerHook = new WildStackerHook();
@@ -880,6 +886,10 @@ public class BukkitQuestsPlugin extends JavaPlugin implements Quests {
 
     public @Nullable AbstractPlayerBlockTrackerHook getPlayerBlockTrackerHook() {
         return playerBlockTrackerHook;
+    }
+
+    public @NotNull AbstractVaultHook getVaultHook() {
+        return this.vaultHook;
     }
 
     public @Nullable AbstractWildStackerHook getWildStackerHook() {
