@@ -211,7 +211,7 @@ public class BukkitQuestsPlugin extends JavaPlugin implements Quests {
     private VersionSpecificHandler versionSpecificHandler;
 
     private LogHistory logHistory;
-    private BukkitRunnable questAutoSaveRunnable;
+    private WrappedTask questAutoSaveTask;
     private WrappedTask questQueuePollTask;
     private BiFunction<Player, String, String> placeholderAPIProcessor;
 
@@ -681,17 +681,17 @@ public class BukkitQuestsPlugin extends JavaPlugin implements Quests {
             if (!initialLoad) {
                 final long autoSaveInterval = this.getConfig().getLong("options.performance-tweaking.quest-autosave-interval", 12000);
                 try {
-                    if (this.questAutoSaveRunnable != null) {
-                        this.questAutoSaveRunnable.cancel();
+                    if (this.questAutoSaveTask != null && !this.questAutoSaveTask.isCancelled()) {
+                        this.questAutoSaveTask.cancel();
                     }
-                    this.serverScheduler.runTaskTimer(this.questAutoSaveRunnable = new QuestsAutoSaveRunnable(this), autoSaveInterval, autoSaveInterval);
+                    this.questAutoSaveTask = this.serverScheduler.runTaskTimer(new QuestsAutoSaveRunnable(this), autoSaveInterval, autoSaveInterval);
                 } catch (final Exception e) {
                     this.getLogger().log(Level.SEVERE, "Cannot cancel and restart quest autosave task", e);
                 }
 
                 final long queueExecuteInterval = this.getConfig().getLong("options.performance-tweaking.quest-queue-executor-interval", 1);
                 try {
-                    if (this.questQueuePollTask != null) {
+                    if (this.questQueuePollTask != null && !this.questQueuePollTask.isCancelled()) {
                         this.questQueuePollTask.cancel();
                     }
                     this.questQueuePollTask = this.serverScheduler.runTaskTimer(this.questCompleter, queueExecuteInterval, queueExecuteInterval);
