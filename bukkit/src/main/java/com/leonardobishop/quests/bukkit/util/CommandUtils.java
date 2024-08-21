@@ -173,7 +173,7 @@ public class CommandUtils {
     public static void doSafeSave(QPlayer qPlayer, QuestProgressFile questProgressFile, BukkitQuestsPlugin plugin) {
         if (Bukkit.getPlayer(qPlayer.getPlayerUUID()) == null) {
             plugin.getScheduler().doAsync(() -> {
-                plugin.getPlayerManager().savePlayerSync(qPlayer.getPlayerUUID(), questProgressFile);
+                plugin.getPlayerManager().savePlayerSync(qPlayer.getPlayerUUID(), questProgressFile, qPlayer.getPlayerPreferences());
                 plugin.getScheduler().doSync(() -> {
                     if (Bukkit.getPlayer(qPlayer.getPlayerUUID()) == null) {
                         plugin.getPlayerManager().dropPlayer(qPlayer.getPlayerUUID());

@@ -19,6 +19,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -51,6 +52,11 @@ public class MySqlStorageProvider implements StorageProvider {
                     " `progress`   VARCHAR(64)  NULL," +
                     " `data_type`  VARCHAR(10)  NULL," +
                     " PRIMARY KEY (`uuid`, `quest_id`, `task_id`));";
+    private static final String CREATE_TABLE_PLAYER_PREFERENCES =
+            "CREATE TABLE IF NOT EXISTS `{prefix}player_preferences` (" +
+                    " `uuid`              VARCHAR(36)  NOT NULL," +
+                    " `tracked_quest_id`  VARCHAR(50)  NOT NULL," +
+                    " PRIMARY KEY (`uuid`));";
     private static final String CREATE_TABLE_DATABASE_INFORMATION =
             "CREATE TABLE IF NOT EXISTS `{prefix}database_information` (" +
                     " `key`   VARCHAR(255) NOT NULL," +
@@ -60,6 +66,8 @@ public class MySqlStorageProvider implements StorageProvider {
             "SELECT quest_id, started, started_date, completed, completed_before, completion_date FROM `{prefix}quest_progress` WHERE uuid=?;";
     private static final String SELECT_PLAYER_TASK_PROGRESS =
             "SELECT quest_id, task_id, completed, progress, data_type FROM `{prefix}task_progress` WHERE uuid=?;";
+    private static final String SELECT_PLAYER_PLAYER_PREFERENCES =
+            "SELECT tracked_quest_id FROM `{prefix}player_preferences` WHERE uuid=?;";
     private static final String SELECT_UUID_LIST =
             "SELECT DISTINCT uuid FROM `{prefix}quest_progress`;";
     private static final String SELECT_KNOWN_PLAYER_QUEST_PROGRESS =
@@ -70,6 +78,8 @@ public class MySqlStorageProvider implements StorageProvider {
             "INSERT INTO `{prefix}quest_progress` (uuid, quest_id, started, started_date, completed, completed_before, completion_date) VALUES (?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE started=?, started_date=?, completed=?, completed_before=?, completion_date=?";
     private static final String WRITE_PLAYER_TASK_PROGRESS =
             "INSERT INTO `{prefix}task_progress` (uuid, quest_id, task_id, completed, progress, data_type) VALUES (?,?,?,?,?,?) ON DUPLICATE KEY UPDATE completed=?, progress=?, data_type=?";
+    private static final String WRITE_PLAYER_PLAYER_PREFERENCES =
+            "INSERT INTO `{prefix}player_preferences` (uuid, tracked_quest_id) VALUES (?, ?) ON DUPLICATE KEY UPDATE tracked_quest_id=?";
 
     private final ConfigurationSection configuration;
     private final BukkitQuestsPlugin plugin;
@@ -134,6 +144,7 @@ public class MySqlStorageProvider implements StorageProvider {
                 plugin.getQuestsLogger().debug("Creating default tables");
                 s.addBatch(this.statementProcessor.apply(CREATE_TABLE_QUEST_PROGRESS));
                 s.addBatch(this.statementProcessor.apply(CREATE_TABLE_TASK_PROGRESS));
+                s.addBatch(this.statementProcessor.apply(CREATE_TABLE_PLAYER_PREFERENCES));
                 s.addBatch(this.statementProcessor.apply(CREATE_TABLE_DATABASE_INFORMATION));
 
                 s.executeBatch();
@@ -158,7 +169,7 @@ public class MySqlStorageProvider implements StorageProvider {
 
     @Override
     @Nullable
-    public QuestProgressFile loadProgressFile(@NotNull UUID uuid) {
+    public Map.Entry<QuestProgressFile, String> loadProgressFile(@NotNull UUID uuid) {
         Objects.requireNonNull(uuid, "uuid cannot be null");
 
         if (fault) return null;
@@ -166,6 +177,8 @@ public class MySqlStorageProvider implements StorageProvider {
         boolean validateQuests = plugin.getQuestsConfig().getBoolean("options.verify-quest-exists-on-load", true);
 
         QuestProgressFile questProgressFile = new QuestProgressFile(uuid, plugin);
+        String trackedQuestId = null;
+
         try (Connection connection = hikari.getConnection()) {
             plugin.getQuestsLogger().debug("Querying player " + uuid);
             Map<String, QuestProgress> questProgressMap = new HashMap<>();
@@ -242,22 +255,33 @@ public class MySqlStorageProvider implements StorageProvider {
             for (QuestProgress questProgress : questProgressMap.values()) {
                 questProgressFile.addQuestProgress(questProgress);
             }
+            try (PreparedStatement ps = connection.prepareStatement(this.statementProcessor.apply(SELECT_PLAYER_PLAYER_PREFERENCES))) {
+                ps.setString(1, uuid.toString());
+
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.first()) {
+                        trackedQuestId = rs.getString("tracked_quest_id");
+                    }
+                }
+            }
         } catch (SQLException e) {
             e.printStackTrace();
             return null;
         }
-        return questProgressFile;
+
+        return new AbstractMap.SimpleImmutableEntry<>(questProgressFile, trackedQuestId);
     }
 
     @Override
-    public boolean saveProgressFile(@NotNull UUID uuid, @NotNull QuestProgressFile questProgressFile) {
+    public boolean saveProgressFile(@NotNull UUID uuid, @NotNull QuestProgressFile questProgressFile, @Nullable String trackedQuestId) {
         Objects.requireNonNull(uuid, "uuid cannot be null");
         Objects.requireNonNull(questProgressFile, "questProgressFile cannot be null");
 
         if (fault) return false;
         try (Connection connection = hikari.getConnection()) {
             try (PreparedStatement writeQuestProgress = connection.prepareStatement(this.statementProcessor.apply(WRITE_PLAYER_QUEST_PROGRESS));
-                 PreparedStatement writeTaskProgress = connection.prepareStatement(this.statementProcessor.apply(WRITE_PLAYER_TASK_PROGRESS))) {
+                 PreparedStatement writeTaskProgress = connection.prepareStatement(this.statementProcessor.apply(WRITE_PLAYER_TASK_PROGRESS));
+                 PreparedStatement writePlayerPreferences = connection.prepareStatement(this.statementProcessor.apply(WRITE_PLAYER_PLAYER_PREFERENCES))) {
 
                 List<QuestProgress> questProgressValues = new ArrayList<>(questProgressFile.getAllQuestProgress());
                 for (QuestProgress questProgress : questProgressValues) {
@@ -318,8 +342,12 @@ public class MySqlStorageProvider implements StorageProvider {
                     }
                 }
 
+                writePlayerPreferences.setString(1, uuid.toString());
+                writePlayerPreferences.setString(2, trackedQuestId);
+
                 writeQuestProgress.executeBatch();
                 writeTaskProgress.executeBatch();
+                writePlayerPreferences.executeUpdate();
             }
             return true;
         } catch (SQLException e) {
@@ -329,7 +357,7 @@ public class MySqlStorageProvider implements StorageProvider {
     }
 
     @Override
-    public @NotNull List<QuestProgressFile> loadAllProgressFiles() {
+    public @NotNull List<Map.Entry<QuestProgressFile, String>> loadAllProgressFiles() {
         if (fault) return Collections.emptyList();
 
         Set<UUID> uuids = new HashSet<>();
@@ -351,9 +379,9 @@ public class MySqlStorageProvider implements StorageProvider {
             return Collections.emptyList();
         }
 
-        List<QuestProgressFile> files = new ArrayList<>();
+        List<Map.Entry<QuestProgressFile, String>> files = new ArrayList<>();
         for (UUID uuid : uuids) {
-            QuestProgressFile file = loadProgressFile(uuid);
+            Map.Entry<QuestProgressFile, String> file = loadProgressFile(uuid);
             if (file != null) {
                 files.add(file);
             }
@@ -363,11 +391,11 @@ public class MySqlStorageProvider implements StorageProvider {
     }
 
     @Override
-    public void saveAllProgressFiles(List<QuestProgressFile> files) {
+    public void saveAllProgressFiles(List<Map.Entry<QuestProgressFile, String>> files) {
         if (fault) return;
 
-        for (QuestProgressFile file : files) {
-            saveProgressFile(file.getPlayerUUID(), file);
+        for (Map.Entry<QuestProgressFile, String> file : files) {
+            saveProgressFile(file.getKey().getPlayerUUID(), file.getKey(), file.getValue());
         }
     }
 

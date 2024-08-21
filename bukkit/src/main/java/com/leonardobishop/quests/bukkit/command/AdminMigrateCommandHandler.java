@@ -15,6 +15,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class AdminMigrateCommandHandler implements CommandHandler {
@@ -87,11 +88,11 @@ public class AdminMigrateCommandHandler implements CommandHandler {
                 }
 
                 sender.sendMessage(ChatColor.GRAY + "Loading quest progress files from '" + fromProvider.getName() + "'...");
-                List<QuestProgressFile> files = fromProvider.loadAllProgressFiles();
+                List<Map.Entry<QuestProgressFile, String>> files = fromProvider.loadAllProgressFiles();
                 sender.sendMessage(ChatColor.GRAY.toString() + files.size() + " files loaded.");
 
-                for (QuestProgressFile file : files) {
-                    file.setModified(true);
+                for (Map.Entry<QuestProgressFile, String> file : files) {
+                    file.getKey().setModified(true);
                 }
 
                 sender.sendMessage(ChatColor.GRAY + "Writing quest progress files to '" + toProvider.getName() + "'...");

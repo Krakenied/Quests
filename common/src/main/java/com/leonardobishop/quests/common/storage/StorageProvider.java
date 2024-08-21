@@ -5,6 +5,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -25,7 +26,7 @@ public interface StorageProvider {
      * @param uuid the UUID to load
      * @return {@link QuestProgressFile} or null
      */
-    @Nullable QuestProgressFile loadProgressFile(@NotNull UUID uuid);
+    @Nullable Map.Entry<QuestProgressFile, String> loadProgressFile(@NotNull UUID uuid);
 
     /**
      * Save a QuestProgressFile to the data source with a specific UUID
@@ -33,21 +34,21 @@ public interface StorageProvider {
      * @param uuid the uuid to match the file to
      * @param questProgressFile the file to save
      */
-    boolean saveProgressFile(@NotNull UUID uuid, @NotNull QuestProgressFile questProgressFile);
+    boolean saveProgressFile(@NotNull UUID uuid, @NotNull QuestProgressFile questProgressFile, @Nullable String trackedQuestId);
 
     /**
      * Load all QuestProgressFiles
      *
      * @return {@link List<QuestProgressFile>}
      */
-    @NotNull List<QuestProgressFile> loadAllProgressFiles();
+    @NotNull List<Map.Entry<QuestProgressFile, String>> loadAllProgressFiles();
 
     /**
      * Save a list of QuestProgressFiles
      *
      * @param files the list of QuestProgressFile to save
      **/
-    void saveAllProgressFiles(List<QuestProgressFile> files);
+    void saveAllProgressFiles(List<Map.Entry<QuestProgressFile, String>> files);
 
     /**
      * Whether this provider is 'similar' to another one.

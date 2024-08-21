@@ -6,6 +6,7 @@ import com.leonardobishop.quests.common.player.questprogressfile.QuestProgressFi
 import com.leonardobishop.quests.common.player.questprogressfile.TaskProgress;
 import com.leonardobishop.quests.common.quest.Quest;
 import com.leonardobishop.quests.common.storage.StorageProvider;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -18,6 +19,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -59,14 +61,16 @@ public class YamlStorageProvider implements StorageProvider {
         // no impl
     }
 
-    public @Nullable QuestProgressFile loadProgressFile(@NotNull UUID uuid) {
+    public @Nullable Map.Entry<QuestProgressFile, String> loadProgressFile(@NotNull UUID uuid) {
         Objects.requireNonNull(uuid, "uuid cannot be null");
 
         ReentrantLock lock = lock(uuid);
         Map<String, Quest> presentQuests = new HashMap<>(plugin.getQuestManager().getQuests());
         boolean validateQuests = plugin.getQuestsConfig().getBoolean("options.verify-quest-exists-on-load", true);
-        
+
         QuestProgressFile questProgressFile = new QuestProgressFile(uuid, plugin);
+        String trackedQuestId = null;
+
         try {
             File directory = new File(plugin.getDataFolder() + File.separator + "playerdata");
             if (directory.exists() && directory.isDirectory()) {
@@ -101,6 +105,11 @@ public class YamlStorageProvider implements StorageProvider {
                             questProgressFile.addQuestProgress(questProgress);
                         }
                     }
+
+                    final ConfigurationSection preferencesSection = data.getConfigurationSection("player-preferences");
+                    if (preferencesSection != null) {
+                        trackedQuestId = preferencesSection.getString("tracked-quest-id");
+                    }
                 } else {
                     plugin.getQuestsLogger().debug("Player " + uuid + " does not have a quest progress file.");
                 }
@@ -112,10 +121,10 @@ public class YamlStorageProvider implements StorageProvider {
             lock.unlock();
         }
 
-        return questProgressFile;
+        return new AbstractMap.SimpleEntry<>(questProgressFile, trackedQuestId);
     }
 
-    public boolean saveProgressFile(@NotNull UUID uuid, @NotNull QuestProgressFile questProgressFile) {
+    public boolean saveProgressFile(@NotNull UUID uuid, @NotNull QuestProgressFile questProgressFile, @Nullable String trackedQuestId) {
         Objects.requireNonNull(uuid, "uuid cannot be null");
         Objects.requireNonNull(questProgressFile, "questProgressFile cannot be null");
 
@@ -152,6 +161,9 @@ public class YamlStorageProvider implements StorageProvider {
                 }
             }
 
+            // Player preferences
+            data.set("player-preferences.tracked-quest-id", trackedQuestId);
+
             plugin.getQuestsLogger().debug("Writing player " + uuid + " to disk.");
             try {
                 data.save(file);
@@ -165,8 +177,8 @@ public class YamlStorageProvider implements StorageProvider {
         }
     }
 
-    public @NotNull List<QuestProgressFile> loadAllProgressFiles() {
-        List<QuestProgressFile> files = new ArrayList<>();
+    public @NotNull List<Map.Entry<QuestProgressFile, String>> loadAllProgressFiles() {
+        List<Map.Entry<QuestProgressFile, String>> files = new ArrayList<>();
 
         File directory = new File(plugin.getDataFolder() + File.separator + "playerdata");
         FileVisitor<Path> fileVisitor = new SimpleFileVisitor<Path>() {
@@ -180,7 +192,7 @@ public class YamlStorageProvider implements StorageProvider {
                         return FileVisitResult.CONTINUE;
                     }
 
-                    QuestProgressFile file = loadProgressFile(uuid);
+                    Map.Entry<QuestProgressFile, String> file = loadProgressFile(uuid);
                     if (file != null) {
                         files.add(file);
                     }
@@ -199,9 +211,9 @@ public class YamlStorageProvider implements StorageProvider {
     }
 
     @Override
-    public void saveAllProgressFiles(List<QuestProgressFile> files) {
-        for (QuestProgressFile file : files) {
-            saveProgressFile(file.getPlayerUUID(), file);
+    public void saveAllProgressFiles(List<Map.Entry<QuestProgressFile, String>> files) {
+        for (Map.Entry<QuestProgressFile, String> file : files) {
+            saveProgressFile(file.getKey().getPlayerUUID(), file.getKey(), file.getValue());
         }
     }
 
