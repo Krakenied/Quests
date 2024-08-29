@@ -68,7 +68,7 @@ public class ItemGetter8 extends ItemGetter {
             String ownerUniqueIdString = config.getString("owner-uuid");
             String ownerBase64 = config.getString("owner-base64");
 
-            plugin.getSkullGetter().apply(skullMeta, ownerName, ownerUniqueIdString, ownerBase64);
+            plugin.getSkullGetter().apply(null, skullMeta, ownerName, ownerUniqueIdString, ownerBase64);
         }
 
         // name
