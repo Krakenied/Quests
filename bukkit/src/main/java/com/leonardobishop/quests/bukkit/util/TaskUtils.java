@@ -1,6 +1,7 @@
 package com.leonardobishop.quests.bukkit.util;
 
 import com.leonardobishop.quests.bukkit.BukkitQuestsPlugin;
+import com.leonardobishop.quests.bukkit.item.DisjunctiveQuestItem;
 import com.leonardobishop.quests.bukkit.item.ParsedQuestItem;
 import com.leonardobishop.quests.bukkit.item.QuestItem;
 import com.leonardobishop.quests.bukkit.menu.itemstack.QItemStack;
@@ -39,6 +40,7 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @SuppressWarnings({"deprecation", "BooleanMethodIsAlwaysInverted"})
@@ -115,28 +117,60 @@ public class TaskUtils {
         return task.getConfigValue(key) instanceof Boolean configBoolean ? configBoolean : def;
     }
 
-    public static QuestItem getConfigQuestItem(Task task, String itemKey, String dataKey) {
-        Object configBlock = task.getConfigValue(itemKey);
-        Object configData = task.getConfigValue(dataKey);
+    private static final String ANY_OF_KEY = "any-of";
 
-        QuestItem questItem;
-        if (configBlock instanceof ConfigurationSection) {
-            questItem = plugin.getConfiguredQuestItem("", (ConfigurationSection) configBlock);
+    public static @NotNull QuestItem getConfigQuestItem(final @NotNull Task task, final @NotNull String itemKey, final @NotNull String dataKey) {
+        return getConfigQuestItem(task.getConfigValue(itemKey), task.getConfigValue(dataKey), itemKey, dataKey);
+    }
+
+    public static @NotNull QuestItem getConfigQuestItem(final @NotNull ConfigurationSection itemSection, final @NotNull String itemKey, final @NotNull String dataKey) {
+        return getConfigQuestItem(itemSection.get(itemKey), itemSection.get(dataKey), itemKey, dataKey);
+    }
+
+    public static @NotNull QuestItem getConfigQuestItem(final @Nullable Object itemValue, final @Nullable Object dataValue, final @NotNull String itemKey, final @NotNull String dataKey) {
+        if (itemValue instanceof final ConfigurationSection itemSection) {
+            final boolean isAnyOfSet = itemSection.getBoolean(ANY_OF_KEY, false);
+
+            if (isAnyOfSet) {
+                final Set<String> keys = itemSection.getKeys(false);
+
+                // Just skip this one
+                keys.remove(ANY_OF_KEY);
+
+                final List<QuestItem> items = new ArrayList<>(keys.size());
+
+                for (final String key : keys) {
+                    //noinspection DataFlowIssue
+                    final QuestItem item = getConfigQuestItem(
+                            itemSection.getConfigurationSection(key),
+                            itemKey,
+                            dataKey
+                    );
+
+                    items.add(item);
+                }
+
+                return new DisjunctiveQuestItem(items);
+            } else {
+                return plugin.getConfiguredQuestItem("", itemSection);
+            }
         } else {
-            Material material = Material.getMaterial(String.valueOf(configBlock));
-            ItemStack is;
+            Material material = Material.getMaterial(String.valueOf(itemValue));
+
             if (material == null) {
                 material = Material.STONE;
             }
-            if (configData != null) {
-                is = new ItemStack(material, 1, ((Integer) configData).shortValue());
-            } else {
-                is = new ItemStack(material, 1);
-            }
-            questItem = new ParsedQuestItem("parsed", null, is);
-        }
 
-        return questItem;
+            final ItemStack item;
+
+            if (dataValue != null) {
+                item = new ItemStack(material, 1, ((Integer) dataValue).shortValue());
+            } else {
+                item = new ItemStack(material, 1);
+            }
+
+            return new ParsedQuestItem("parsed", null, item);
+        }
     }
 
     public static double getDecimalTaskProgress(TaskProgress taskProgress) {
