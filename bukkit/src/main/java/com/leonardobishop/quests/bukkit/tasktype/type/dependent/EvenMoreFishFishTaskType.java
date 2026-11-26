@@ -7,22 +7,16 @@ import com.leonardobishop.quests.bukkit.util.constraint.TaskConstraintSet;
 import com.leonardobishop.quests.common.player.QPlayer;
 import com.leonardobishop.quests.common.player.questprogressfile.TaskProgress;
 import com.leonardobishop.quests.common.quest.Quest;
-import com.leonardobishop.quests.common.quest.Task;
 import com.oheers.fish.api.fishing.items.IFish;
 import org.bukkit.entity.Player;
 
-public abstract class EvenMoreFishFishTaskType extends BukkitTaskType {
+public abstract class EvenMoreFishFishTaskType extends BukkitTaskType<EvenMoreFishFishTask> {
 
     private final BukkitQuestsPlugin plugin;
 
     public EvenMoreFishFishTaskType(String type, String author, String description, BukkitQuestsPlugin plugin) {
-        super(type, author, description);
+        super(type, author, description, EvenMoreFishFishTask.SCHEMA);
         this.plugin = plugin;
-
-        this.addConfigValidator(TaskUtils.useRequiredConfigValidator(this, "amount"));
-        this.addConfigValidator(TaskUtils.useIntegerConfigValidator(this, "amount"));
-        this.addConfigValidator(TaskUtils.useEnumConfigValidator(this, TaskUtils.StringMatchMode.class, "fish-match-mode", null, false));
-        this.addConfigValidator(TaskUtils.useEnumConfigValidator(this, TaskUtils.StringMatchMode.class, "rarity-match-mode", null, false));
     }
 
     protected void handle(Player player, IFish fish) {
@@ -38,19 +32,19 @@ public abstract class EvenMoreFishFishTaskType extends BukkitTaskType {
         String fishName = fish.getName();
         String rarityName = fish.getRarity().getId();
 
-        for (TaskUtils.PendingTask pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, this, TaskConstraintSet.ALL)) {
+        for (TaskUtils.PendingTask<EvenMoreFishFishTask> pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, this, TaskConstraintSet.ALL)) {
             Quest quest = pendingTask.quest();
-            Task task = pendingTask.task();
+            EvenMoreFishFishTask task = pendingTask.task();
             TaskProgress taskProgress = pendingTask.taskProgress();
 
             this.debug("Player caught fish " + fishName + " of rarity " + rarityName, quest.getId(), task.getId(), player.getUniqueId());
 
-            if (!TaskUtils.matchString(this, pendingTask, fishName, player.getUniqueId(), "fish", "fishes", false, "fish-match-mode", false)) {
+            if (!TaskUtils.matchString(this, pendingTask, task.fishes, task.fishMatchMode, fishName, player.getUniqueId(), false, false)) {
                 this.debug("Continuing...", quest.getId(), task.getId(), player.getUniqueId());
                 continue;
             }
 
-            if (!TaskUtils.matchString(this, pendingTask, rarityName, player.getUniqueId(), "rarity", "rarities", false, "rarity-match-mode", false)) {
+            if (!TaskUtils.matchString(this, pendingTask, task.rarities, task.rarityMatchMode, rarityName, player.getUniqueId(), false, false)) {
                 this.debug("Continuing...", quest.getId(), task.getId(), player.getUniqueId());
                 continue;
             }
@@ -58,7 +52,7 @@ public abstract class EvenMoreFishFishTaskType extends BukkitTaskType {
             int progress = TaskUtils.incrementIntegerTaskProgress(taskProgress);
             this.debug("Incrementing task progress (now " + progress + ")", quest.getId(), task.getId(), player.getUniqueId());
 
-            int amount = (int) task.getConfigValue("amount");
+            int amount = task.amount;
 
             if (progress >= amount) {
                 this.debug("Marking task as complete", quest.getId(), task.getId(), player.getUniqueId());

@@ -8,7 +8,6 @@ import com.leonardobishop.quests.bukkit.util.constraint.TaskConstraintSet;
 import com.leonardobishop.quests.common.player.QPlayer;
 import com.leonardobishop.quests.common.player.questprogressfile.TaskProgress;
 import com.leonardobishop.quests.common.quest.Quest;
-import com.leonardobishop.quests.common.quest.Task;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -17,19 +16,13 @@ import org.bukkit.event.enchantment.EnchantItemEvent;
 
 import java.util.List;
 
-public final class EnchantingTaskType extends BukkitTaskType {
+public final class EnchantingTaskType extends BukkitTaskType<EnchantingTask> {
 
     private final BukkitQuestsPlugin plugin;
 
     public EnchantingTaskType(BukkitQuestsPlugin plugin) {
-        super("enchanting", TaskUtils.TASK_ATTRIBUTION_STRING, "Enchant a certain amount of items.");
+        super("enchanting", TaskUtils.TASK_ATTRIBUTION_STRING, "Enchant a certain amount of items.", EnchantingTask.SCHEMA);
         this.plugin = plugin;
-
-        super.addConfigValidator(TaskUtils.useRequiredConfigValidator(this, "amount"));
-        super.addConfigValidator(TaskUtils.useIntegerConfigValidator(this, "amount"));
-        super.addConfigValidator(TaskUtils.useItemStackConfigValidator(this, "item"));
-        super.addConfigValidator(TaskUtils.useEnchantmentListConfigValidator(this, "enchantment"));
-        super.addConfigValidator(TaskUtils.useIntegerConfigValidator(this, "min-level"));
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -43,15 +36,15 @@ public final class EnchantingTaskType extends BukkitTaskType {
             return;
         }
 
-        for (TaskUtils.PendingTask pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, this, TaskConstraintSet.ALL)) {
+        for (TaskUtils.PendingTask<EnchantingTask> pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, this, TaskConstraintSet.ALL)) {
             Quest quest = pendingTask.quest();
-            Task task = pendingTask.task();
+            EnchantingTask task = pendingTask.task();
             TaskProgress taskProgress = pendingTask.taskProgress();
 
             super.debug("Player enchanted item", quest.getId(), task.getId(), player.getUniqueId());
 
-            if (task.hasConfigKey("item")) {
-                QuestItem qi = TaskUtils.getConfigQuestItem(task, "item", "data");
+            QuestItem qi = task.item;
+            if (qi != null) {
                 if (!qi.getItemStack().getType().equals(e.getItem().getType())) {
                     super.debug("Item does not match, continuing...", quest.getId(), task.getId(), player.getUniqueId());
                     continue;
@@ -60,24 +53,17 @@ public final class EnchantingTaskType extends BukkitTaskType {
 
             boolean hasEnchantment = true;
 
-            if (task.hasConfigKey("enchantment")) {
+            List<Enchantment> enchantments = task.enchantments;
+            if (enchantments != null) {
                 hasEnchantment = false;
-                List<String> enchantments = TaskUtils.getConfigStringList(task, "enchantment");
-                if (enchantments == null) {
-                    // TODO use TaskUtils method to match enchant
-                    continue;
-                }
 
-                for (String enchantment : enchantments) {
-                    Enchantment enchantmentObject = Enchantment.getByName(enchantment);
-                    if (enchantmentObject == null) {
-                        super.debug("Enchantment '" + enchantment + "' does not exist, skipping...", quest.getId(), task.getId(), player.getUniqueId());
-                        continue;
-                    }
+                for (Enchantment enchantmentObject : enchantments) {
+                    String enchantment = enchantmentObject.getName();
                     if (e.getEnchantsToAdd().containsKey(enchantmentObject)) {
                         super.debug("Enchantments to add contains enchantment '" + enchantment + "'", quest.getId(), task.getId(), player.getUniqueId());
-                        if (task.hasConfigKey("min-level")) {
-                            int level = (int) task.getConfigValue("min-level");
+                        Integer minLevel = task.minLevel;
+                        if (minLevel != null) {
+                            int level = minLevel;
                             super.debug("Minimum level of " + level + " is specified", quest.getId(), task.getId(), player.getUniqueId());
                             if (e.getEnchantsToAdd().get(enchantmentObject) >= level) {
                                 hasEnchantment = true;
@@ -101,7 +87,7 @@ public final class EnchantingTaskType extends BukkitTaskType {
                 continue;
             }
 
-            int enchantsNeeded = (int) task.getConfigValue("amount");
+            int enchantsNeeded = task.amount;
 
             int progress = TaskUtils.incrementIntegerTaskProgress(taskProgress);
             super.debug("Incrementing task progress (now " + progress + ")", quest.getId(), task.getId(), player.getUniqueId());

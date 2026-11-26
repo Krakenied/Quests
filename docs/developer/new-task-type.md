@@ -32,52 +32,93 @@ Quests handles the completion of all tasks within a quest and dispatches rewards
 > Attempting to register a task type after the registration period has closed will throw a `IllegalStateException`. The registration period closes and quests are loaded after every plugin has finished loading (on the first server [tick](https://github.com/LMBishop/Quests/blob/master/bukkit/src/main/java/com/leonardobishop/quests/bukkit/BukkitQuestsPlugin.java#L402)). 
 
 ## Writing task types
-Your new Task Type must extend the [`TaskType`](https://github.com/LMBishop/Quests/blob/master/common/src/main/java/com/leonardobishop/quests/common/tasktype/TaskType.java) class. **`BukkitTaskType` implements `Listener` and automatically registers as an event listener if used with the `BukkitTaskTypeManager`.** Your subclass must pass the name of the Task Type into the constructor, and optionally the authors name and a brief description of the task. 
+Every task type consists of two classes:
 
-Example:
+* a **task** class extending [`Task`](https://github.com/LMBishop/Quests/blob/master/common/src/main/java/com/leonardobishop/quests/common/quest/Task.java) (on Bukkit: `BukkitTask`, or `AmountTask` for tasks with a required `amount`), which declares the configuration options it accepts and holds their parsed values,
+* a **task type** class extending [`TaskType<T>`](https://github.com/LMBishop/Quests/blob/master/common/src/main/java/com/leonardobishop/quests/common/tasktype/TaskType.java) (on Bukkit: `BukkitTaskType<T>`), which handles events and progress.
+
+**`BukkitTaskType` implements `Listener` and automatically registers as an event listener if used with the `BukkitTaskTypeManager`.**
+
+### Configuration options
+Options are declared as typed `TaskKey<T>` constants and registered in a `TaskSchema`. When quests are loaded, every option of every task is parsed and validated **exactly once**; the task then exposes the parsed values through its own fields. Raw configuration values are not kept.
+
 ```java
-public final class MiningTaskType extends BukkitTaskType {
+public final class MiningTask extends AmountTask {
 
-    public MiningTaskType() {
-        super("blockbreak", "LMBishop", "Break a set amount of blocks.");
+    public static final TaskKey<Boolean> ALLOW_SILK_TOUCH = TaskKey.of("allow-silk-touch", TaskKeyParsers.bool()).withDefault(true);
+
+    public static final TaskSchema<MiningTask> SCHEMA = AmountTask.amountSchema(MiningTask::new)
+            .keys(BukkitTaskKeys.BLOCKS, BukkitTaskKeys.DATA, ALLOW_SILK_TOUCH)
+            .build();
+
+    public final @Nullable List<BlockSpec> blocks;
+    public final @Nullable Integer data;
+    public final boolean allowSilkTouch;
+
+    public MiningTask(final String id, final String type, final TaskOptions options) {
+        super(id, type, options);
+
+        this.blocks = options.getOrNull(BukkitTaskKeys.BLOCKS);
+        this.data = options.getOrNull(BukkitTaskKeys.DATA);
+        this.allowSilkTouch = options.get(ALLOW_SILK_TOUCH);
     }
-
 }
 ```
-The name of the Task Type (`blockbreak` in this case) is what server owners put into their config. 
+
+A `TaskKey` describes:
+* the path (and optional aliases, e.g. `block`/`blocks`) in the task section,
+* a `TaskKeyParser` turning the raw value into `T`. Generic parsers live in `TaskKeyParsers` (integers, booleans, strings, string lists, enums, accepted values); Bukkit parsers (materials, blocks, entities, enchantments, quest items, ...) live in `BukkitTaskKeys`,
+* whether it is `required()` and its `withDefault(...)` value.
+
+Parsers report problems (wrong type, unknown material, ...) as `ConfigProblem`s, which are shown to server owners. An `ERROR` prevents the quest from loading. Rules involving more than one key can be added with `TaskSchema.Builder#validator`.
+
+Values defined in the `global-task-configuration` section of the main config are merged into the task section before parsing, so they are validated as well.
+
+### Task type
+Your task type passes the name of the task type, optionally the author's name and a brief description, and the schema of its task into the constructor:
+
+```java
+public final class MiningTaskType extends BukkitTaskType<MiningTask> {
+
+    public MiningTaskType() {
+        super("blockbreak", "LMBishop", "Break a set amount of blocks.", MiningTask.SCHEMA);
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onBlockBreak(BlockBreakEvent event) {
+        // ...
+        for (TaskUtils.PendingTask<MiningTask> pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, this, TaskConstraintSet.ALL)) {
+            MiningTask task = pendingTask.task();
+
+            if (!task.allowSilkTouch && silkTouchPresent) {
+                continue;
+            }
+            // ...
+        }
+    }
+}
+```
+The name of the task type (`blockbreak` in this case) is what server owners put into their config.
+
 ### Bukkit listeners
 You can use Bukkit event listeners like you normally would in your own plugin. The class is already registered as a listener by Quests.
 
-It is recommended that  you set your event priority to `MONITOR` (only if you do not cancel the event) and setting `ignoreCancelled` to true in the `EventHandler` annotation.
+It is recommended that you set your event priority to `MONITOR` (only if you do not cancel the event) and setting `ignoreCancelled` to true in the `EventHandler` annotation.
 
 ```java
 @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 ```
-### Configuration
-Quests will load the configuration of each task into a `HashMap` in the [`Task`](https://github.com/LMBishop/Quests/blob/master/common/src/main/java/com/leonardobishop/quests/common/quest/Task.java) class. Server owners define their task configuration in the quest config, for example:
-```yaml
-tasks:
-  mining:
-    type: "blockbreakcertain"
-    amount: 81
-    block: GOLD_ORE
-```
-Will lead to the following map:
-```java
-configValues = {type="blockbreakcertain";amount=81;block="GOLD_ORE"}
-```
-These values can be accessed through `Task#getConfigValue(String)`. You can also specify a default value to be returned if a server owner has not defined a value with `Task#getConfigValue(String, String)`.
 
 ### Implementing methods
-The [`TaskType`](https://github.com/LMBishop/Quests/blob/master/common/src/main/java/com/leonardobishop/quests/common/tasktype/TaskType.java) class has some methods which can be optionally overridden. 
+The [`TaskType`](https://github.com/LMBishop/Quests/blob/master/common/src/main/java/com/leonardobishop/quests/common/tasktype/TaskType.java) class has some methods which can be optionally overridden.
 
 The `onReady()` method is called when the server has registered all quests to your task type.
 
-The `onStart()` method is called when a player starts a quest containing a task of your task type.
+The `onStart(Quest, T, UUID)` method is called when a player starts a quest containing a task of your task type.
 
 The `onDisable()` method is called when the plugin is disabled, or is reloaded. If the plugin is reloaded, this will unregister all quests from your task type, then register the new quests again.
 
-The `validateConfig(String, HashMap<String, Object>)` method is called when each task is loaded. It is used to detect potential configuration issues and can be used to prevent the quest from loading if, for example, a required config option is missing. The first string is the task root (e.g `tasks.mining` in the first example) and the map is the config to check. The return type is a list of `ConfigProblem`, returning a list containing at least one `ConfigProblem` with an `ERROR` type will prevent the quest from loading.
+Override `Task#getGoal()` in your task class to control what the `{taskid:goal}` placeholders show (`AmountTask` returns its amount).
 
 ### Modifying progress
 You can modify progress by obtaining an instance of a players `QuestProgressFile`, getting the specific `QuestProgress` and then getting the specific `TaskProgress`. You can see an example of this in the [`MiningTaskType`](https://github.com/LMBishop/Quests/blob/master/bukkit/src/main/java/com/leonardobishop/quests/bukkit/tasktype/type/MiningTaskType.java) (which contains comments through the file).

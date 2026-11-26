@@ -8,7 +8,6 @@ import com.leonardobishop.quests.bukkit.util.constraint.TaskConstraintSet;
 import com.leonardobishop.quests.common.player.QPlayer;
 import com.leonardobishop.quests.common.player.questprogressfile.TaskProgress;
 import com.leonardobishop.quests.common.quest.Quest;
-import com.leonardobishop.quests.common.quest.Task;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
@@ -18,20 +17,13 @@ import org.bukkit.event.Listener;
 
 import java.lang.reflect.Field;
 
-public final class MythicMobsKillingTaskType extends BukkitTaskType {
+public final class MythicMobsKillingTaskType extends BukkitTaskType<MythicMobsKillingTask> {
 
     private final BukkitQuestsPlugin plugin;
 
     public MythicMobsKillingTaskType(BukkitQuestsPlugin plugin) {
-        super("mythicmobs_killing", TaskUtils.TASK_ATTRIBUTION_STRING, "Kill a set amount of a MythicMobs entity.");
+        super("mythicmobs_killing", TaskUtils.TASK_ATTRIBUTION_STRING, "Kill a set amount of a MythicMobs entity.", MythicMobsKillingTask.SCHEMA);
         this.plugin = plugin;
-
-        super.addConfigValidator(TaskUtils.useRequiredConfigValidator(this, "name", "names"));
-        super.addConfigValidator(TaskUtils.useRequiredConfigValidator(this, "amount"));
-        super.addConfigValidator(TaskUtils.useIntegerConfigValidator(this, "amount"));
-        super.addConfigValidator(TaskUtils.useIntegerConfigValidator(this, "level"));
-        super.addConfigValidator(TaskUtils.useIntegerConfigValidator(this, "min-level"));
-        super.addConfigValidator(TaskUtils.useEnumConfigValidator(this, TaskUtils.StringMatchMode.class, "name-match-mode", null, false));
 
         // MythicMobs 5
         try {
@@ -97,25 +89,25 @@ public final class MythicMobsKillingTaskType extends BukkitTaskType {
             return;
         }
 
-        for (TaskUtils.PendingTask pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, this, TaskConstraintSet.ALL)) {
+        for (TaskUtils.PendingTask<MythicMobsKillingTask> pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, this, TaskConstraintSet.ALL)) {
             Quest quest = pendingTask.quest();
-            Task task = pendingTask.task();
+            MythicMobsKillingTask task = pendingTask.task();
             TaskProgress taskProgress = pendingTask.taskProgress();
 
             super.debug("Player killed mythic mob '" + mobName + "' (level = " + level + ")", quest.getId(), task.getId(), player.getUniqueId());
 
-            if (!TaskUtils.matchString(this, pendingTask, mobName, player.getUniqueId(), "name", "names", false, "name-match-mode", false)) {
+            if (!TaskUtils.matchString(this, pendingTask, task.names, task.nameMatchMode, mobName, player.getUniqueId(), false, false)) {
                 super.debug("Continuing...", quest.getId(), task.getId(), player.getUniqueId());
                 continue;
             }
 
-            int minMobLevel = (int) task.getConfigValue("min-level", -1);
+            int minMobLevel = task.minLevel;
             if (level < minMobLevel) {
                 super.debug("Minimum level is required and it is not high enough, continuing...", quest.getId(), task.getId(), player.getUniqueId());
                 continue;
             }
 
-            int requiredLevel = (int) task.getConfigValue("level", -1);
+            int requiredLevel = task.level;
             if (requiredLevel != -1 && level != requiredLevel) {
                 super.debug("Specific level is required and it does not match, continuing...", quest.getId(), task.getId(), player.getUniqueId());
                 continue;
@@ -124,7 +116,7 @@ public final class MythicMobsKillingTaskType extends BukkitTaskType {
             int progress = TaskUtils.incrementIntegerTaskProgress(taskProgress);
             super.debug("Incrementing task progress (now " + progress + ")", quest.getId(), task.getId(), player.getUniqueId());
 
-            int amount = (int) task.getConfigValue("amount");
+            int amount = task.amount;
 
             if (progress >= amount) {
                 super.debug("Marking task as complete", quest.getId(), task.getId(), player.getUniqueId());

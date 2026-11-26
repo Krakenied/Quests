@@ -6,7 +6,6 @@ import com.leonardobishop.quests.bukkit.util.TaskUtils;
 import com.leonardobishop.quests.common.player.QPlayer;
 import com.leonardobishop.quests.common.player.questprogressfile.TaskProgress;
 import com.leonardobishop.quests.common.quest.Quest;
-import com.leonardobishop.quests.common.quest.Task;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -16,21 +15,13 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.util.NumberConversions;
 
-public final class PositionTaskType extends BukkitTaskType {
+public final class PositionTaskType extends BukkitTaskType<PositionTask> {
 
     private final BukkitQuestsPlugin plugin;
 
     public PositionTaskType(BukkitQuestsPlugin plugin) {
-        super("position", TaskUtils.TASK_ATTRIBUTION_STRING, "Reach a set of co-ordinates.");
+        super("position", TaskUtils.TASK_ATTRIBUTION_STRING, "Reach a set of co-ordinates.", PositionTask.SCHEMA);
         this.plugin = plugin;
-
-        super.addConfigValidator(TaskUtils.useRequiredConfigValidator(this, "x"));
-        super.addConfigValidator(TaskUtils.useRequiredConfigValidator(this, "y"));
-        super.addConfigValidator(TaskUtils.useRequiredConfigValidator(this, "z"));
-        super.addConfigValidator(TaskUtils.useIntegerConfigValidator(this, "x"));
-        super.addConfigValidator(TaskUtils.useIntegerConfigValidator(this, "y"));
-        super.addConfigValidator(TaskUtils.useIntegerConfigValidator(this, "z"));
-        super.addConfigValidator(TaskUtils.useIntegerConfigValidator(this, "distance-padding"));
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -51,14 +42,14 @@ public final class PositionTaskType extends BukkitTaskType {
 
         Location to = event.getTo();
 
-        for (TaskUtils.PendingTask pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, this)) {
+        for (TaskUtils.PendingTask<PositionTask> pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, this)) {
             Quest quest = pendingTask.quest();
-            Task task = pendingTask.task();
+            PositionTask task = pendingTask.task();
             TaskProgress taskProgress = pendingTask.taskProgress();
 
             super.debug("Player moved", quest.getId(), task.getId(), player.getUniqueId());
 
-            String worldString = (String) task.getConfigValue("world");
+            String worldString = task.world;
             if (worldString != null) {
                 World world = Bukkit.getWorld(worldString);
                 if (world == null) {
@@ -70,13 +61,13 @@ public final class PositionTaskType extends BukkitTaskType {
                 }
             }
 
-            int x = (int) task.getConfigValue("x");
-            int y = (int) task.getConfigValue("y");
-            int z = (int) task.getConfigValue("z");
+            int x = task.x;
+            int y = task.y;
+            int z = task.z;
 
             Location location = new Location(null, x, y, z);
             double distanceSquared = distanceSquared(location, to); // use own distanceSquared method to skip world validation
-            Integer padding = (Integer) task.getConfigValue("distance-padding");
+            Integer padding = task.distancePadding;
 
             super.debug("Player is " + distanceSquared + " meters squared away (padding = " + padding + ")", quest.getId(), task.getId(), player.getUniqueId());
 

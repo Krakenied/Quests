@@ -1,7 +1,5 @@
 package com.leonardobishop.quests.bukkit.tasktype.type;
 
-import com.google.common.collect.HashBasedTable;
-import com.google.common.collect.Table;
 import com.google.common.math.IntMath;
 import com.leonardobishop.quests.bukkit.BukkitQuestsPlugin;
 import com.leonardobishop.quests.bukkit.item.QuestItem;
@@ -11,7 +9,6 @@ import com.leonardobishop.quests.bukkit.util.constraint.TaskConstraintSet;
 import com.leonardobishop.quests.common.player.QPlayer;
 import com.leonardobishop.quests.common.player.questprogressfile.TaskProgress;
 import com.leonardobishop.quests.common.quest.Quest;
-import com.leonardobishop.quests.common.quest.Task;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -24,35 +21,17 @@ import org.bukkit.inventory.FurnaceInventory;
 import org.bukkit.inventory.ItemStack;
 
 import java.math.RoundingMode;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 
-public final class SmeltingTaskType extends BukkitTaskType {
+public final class SmeltingTaskType extends BukkitTaskType<SmeltingTask> {
 
     private final BukkitQuestsPlugin plugin;
-    private final Table<String, String, QuestItem> fixedQuestItemCache = HashBasedTable.create();
 
     public SmeltingTaskType(BukkitQuestsPlugin plugin) {
-        super("smelting", TaskUtils.TASK_ATTRIBUTION_STRING, "Smelt or cook a set amount of a item.", "smeltingcertain");
+        super("smelting", TaskUtils.TASK_ATTRIBUTION_STRING, "Smelt or cook a set amount of a item.", SmeltingTask.SCHEMA, "smeltingcertain");
         this.plugin = plugin;
-
-        super.addConfigValidator(TaskUtils.useItemStackConfigValidator(this, "item"));
-        super.addConfigValidator(TaskUtils.useIntegerConfigValidator(this, "data"));
-        super.addConfigValidator(TaskUtils.useBooleanConfigValidator(this, "exact-match"));
-        super.addConfigValidator(TaskUtils.useRequiredConfigValidator(this, "amount"));
-        super.addConfigValidator(TaskUtils.useIntegerConfigValidator(this, "amount"));
-        super.addConfigValidator(TaskUtils.useAcceptedValuesConfigValidator(this, Arrays.asList(
-                "smoker",
-                "blast_furnace",
-                "furnace"
-        ), "mode", null, false));
-    }
-
-    @Override
-    public void onReady() {
-        fixedQuestItemCache.clear();
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -96,12 +75,12 @@ public final class SmeltingTaskType extends BukkitTaskType {
         final InventoryType inventoryType = event.getInventory().getType();
         final String inventoryTypeName = inventoryTypeNames.get(inventoryType);
 
-        for (TaskUtils.PendingTask pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, this, TaskConstraintSet.ALL)) {
+        for (TaskUtils.PendingTask<SmeltingTask> pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, this, TaskConstraintSet.ALL)) {
             Quest quest = pendingTask.quest();
-            Task task = pendingTask.task();
+            SmeltingTask task = pendingTask.task();
             TaskProgress taskProgress = pendingTask.taskProgress();
 
-            String mode = (String) task.getConfigValue("mode");
+            String mode = task.mode;
             if (mode != null && !inventoryTypeName.equals(mode)) {
                 super.debug("Specific mode is required, but the actual mode '" + inventoryType + "' does not match, continuing...", quest.getId(), task.getId(), player.getUniqueId());
                 continue;
@@ -109,15 +88,9 @@ public final class SmeltingTaskType extends BukkitTaskType {
 
             super.debug("Player smelted " + eventAmount + " of " + item.getType(), quest.getId(), task.getId(), player.getUniqueId());
 
-            if (task.hasConfigKey("item")) {
-                QuestItem qi;
-                if ((qi = fixedQuestItemCache.get(quest.getId(), task.getId())) == null) {
-                    QuestItem fetchedItem = TaskUtils.getConfigQuestItem(task, "item", "data");
-                    fixedQuestItemCache.put(quest.getId(), task.getId(), fetchedItem);
-                    qi = fetchedItem;
-                }
-
-                boolean exactMatch = TaskUtils.getConfigBoolean(task, "exact-match", true);
+            QuestItem qi = task.item;
+            if (qi != null) {
+                boolean exactMatch = task.exactMatch;
                 if (!qi.compareItemStack(item, exactMatch)) {
                     super.debug("Item does not match required item, continuing...", quest.getId(), task.getId(), player.getUniqueId());
                     continue;
@@ -127,7 +100,7 @@ public final class SmeltingTaskType extends BukkitTaskType {
             int progress = TaskUtils.incrementIntegerTaskProgress(taskProgress, eventAmount);
             super.debug("Updating task progress (now " + (progress + eventAmount) + ")", quest.getId(), task.getId(), player.getUniqueId());
 
-            int amount = (int) task.getConfigValue("amount");
+            int amount = task.amount;
 
             if ((int) taskProgress.getProgress() >= amount) {
                 super.debug("Marking task as complete", quest.getId(), task.getId(), player.getUniqueId());

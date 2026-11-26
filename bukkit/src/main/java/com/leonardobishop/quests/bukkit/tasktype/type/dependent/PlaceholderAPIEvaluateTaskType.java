@@ -6,7 +6,6 @@ import com.leonardobishop.quests.bukkit.scheduler.WrappedTask;
 import com.leonardobishop.quests.bukkit.tasktype.BukkitTaskType;
 import com.leonardobishop.quests.bukkit.util.TaskUtils;
 import com.leonardobishop.quests.bukkit.util.constraint.TaskConstraintSet;
-import com.leonardobishop.quests.common.config.ConfigProblem;
 import com.leonardobishop.quests.common.player.QPlayer;
 import com.leonardobishop.quests.common.player.questprogressfile.TaskProgress;
 import com.leonardobishop.quests.common.quest.Quest;
@@ -14,47 +13,19 @@ import com.leonardobishop.quests.common.quest.Task;
 import me.clip.placeholderapi.PlaceholderAPI;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
-import org.jspecify.annotations.NonNull;
 
-import java.util.Arrays;
 import java.util.WeakHashMap;
 import java.util.concurrent.CompletableFuture;
 
-public final class PlaceholderAPIEvaluateTaskType extends BukkitTaskType {
+public final class PlaceholderAPIEvaluateTaskType extends BukkitTaskType<PlaceholderAPIEvaluateTask> {
 
     private final BukkitQuestsPlugin plugin;
     private final WeakHashMap<Player, WeakHashMap<Task, Integer>> refreshTicksMap = new WeakHashMap<>();
     private WrappedTask poll;
 
     public PlaceholderAPIEvaluateTaskType(BukkitQuestsPlugin plugin) {
-        super("placeholderapi_evaluate", TaskUtils.TASK_ATTRIBUTION_STRING, "Evaluate the result of a placeholder");
+        super("placeholderapi_evaluate", TaskUtils.TASK_ATTRIBUTION_STRING, "Evaluate the result of a placeholder", PlaceholderAPIEvaluateTask.SCHEMA);
         this.plugin = plugin;
-
-        super.addConfigValidator(TaskUtils.useRequiredConfigValidator(this, "placeholder"));
-        super.addConfigValidator(TaskUtils.useRequiredConfigValidator(this, "evaluates"));
-        super.addConfigValidator(TaskUtils.useAcceptedValuesConfigValidator(this, Arrays.asList(
-                "GREATER_THAN",
-                "GREATER_THAN_OR_EQUAL_TO",
-                "LESS_THAN",
-                "LESS_THAN_OR_EQUAL_TO"
-        ), "operator", null, false));
-        super.addConfigValidator((config, problems) -> {
-            if (config.containsKey("operator")) {
-                String evalStr = String.valueOf(config.get("evaluates"));
-                try {
-                    Double.parseDouble(evalStr);
-                } catch (IllegalArgumentException ex) {
-                    problems.add(new ConfigProblem(ConfigProblem.ConfigProblemType.WARNING,
-                            "Numeric operator specified, but placeholder evaluation '" + evalStr + "' is not numeric",
-                            "A numeric operator was specified, but<br>" +
-                            "the evaluation '" + evalStr + "' is not numeric<br>" +
-                            "and cannot be parsed.",
-                            "evaluates"));
-                }
-            }
-        });
-        super.addConfigValidator(TaskUtils.useIntegerConfigValidator(this, "refresh-ticks"));
-        super.addConfigValidator(TaskUtils.useBooleanConfigValidator(this, "async"));
     }
 
     @Override
@@ -80,14 +51,14 @@ public final class PlaceholderAPIEvaluateTaskType extends BukkitTaskType {
             return;
         }
 
-        for (TaskUtils.PendingTask pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, this, TaskConstraintSet.ALL)) {
+        for (TaskUtils.PendingTask<PlaceholderAPIEvaluateTask> pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, this, TaskConstraintSet.ALL)) {
             Quest quest = pendingTask.quest();
-            Task task = pendingTask.task();
+            PlaceholderAPIEvaluateTask task = pendingTask.task();
             TaskProgress taskProgress = pendingTask.taskProgress();
 
             super.debug("Polling PAPI for player", quest.getId(), task.getId(), player.getUniqueId());
 
-            Integer refreshTicks = (Integer) task.getConfigValue("refresh-ticks");
+            Integer refreshTicks = task.refreshTicks;
             if (refreshTicks != null) {
                 int currentTick = Bukkit.getCurrentTick();
 
@@ -106,45 +77,25 @@ public final class PlaceholderAPIEvaluateTaskType extends BukkitTaskType {
                 playerRefreshTicksMap.put(task, currentTick);
             }
 
-            String placeholder = (String) task.getConfigValue("placeholder");
-            if (placeholder == null) {
-                continue;
-            }
-
-            String evaluatesString = String.valueOf(task.getConfigValue("evaluates"));
-            if (evaluatesString == null) {
-                continue;
-            }
-
-            String operatorString = (String) task.getConfigValue("operator");
-            Operator operator;
-            if (operatorString != null) {
-                try {
-                    operator = Operator.valueOf(operatorString);
-                } catch (IllegalArgumentException ignored) {
-                    super.debug("Numeric operator was specified but cannot be parsed, continuing...", quest.getId(), task.getId(), player.getUniqueId());
-                    continue;
-                }
-            } else {
-                operator = null;
-            }
+            String placeholder = task.placeholder;
+            String evaluatesString = task.evaluates;
+            Operator operator = task.operator;
 
             super.debug("Operator = " + operator, quest.getId(), task.getId(), player.getUniqueId());
 
-            boolean async = TaskUtils.getConfigBoolean(task, "async", false);
+            boolean async = task.async;
             CompletableFuture<String> future = evaluate(player, placeholder, async);
 
             future.thenAccept(evaluatedString -> {
                 super.debug("Evaluation = '" + evaluatedString + "'", quest.getId(), task.getId(), player.getUniqueId());
 
                 if (operator != null) {
-                    double evaluates;
-                    try {
-                        evaluates = Double.parseDouble(evaluatesString);
-                    } catch (NumberFormatException ignored) {
+                    Double evaluatesNumber = task.evaluatesNumber;
+                    if (evaluatesNumber == null) {
                         super.debug("Numeric operator was specified but configured string to evaluate to cannot be parsed into a double, continuing...", quest.getId(), task.getId(), player.getUniqueId());
                         return;
                     }
+                    double evaluates = evaluatesNumber;
 
                     double evaluated;
                     try {
@@ -194,7 +145,7 @@ public final class PlaceholderAPIEvaluateTaskType extends BukkitTaskType {
         }
     }
 
-    private enum Operator {
+    enum Operator {
         GREATER_THAN {
             @Override
             public boolean compare(double evaluated, double evaluates) {
@@ -223,8 +174,4 @@ public final class PlaceholderAPIEvaluateTaskType extends BukkitTaskType {
         public abstract boolean compare(double evaluated, double evaluates);
     }
 
-    @Override
-    public @NonNull Object getGoal(final @NonNull Task task) {
-        return task.getConfigValue("evaluates", "-");
-    }
 }

@@ -8,7 +8,6 @@ import com.leonardobishop.quests.bukkit.util.TaskUtils;
 import com.leonardobishop.quests.common.player.QPlayer;
 import com.leonardobishop.quests.common.player.questprogressfile.TaskProgress;
 import com.leonardobishop.quests.common.quest.Quest;
-import com.leonardobishop.quests.common.quest.Task;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -16,16 +15,13 @@ import org.bukkit.event.EventPriority;
 
 import java.math.BigDecimal;
 
-public final class SuperiorSkyblockWorthType extends BukkitTaskType {
+public final class SuperiorSkyblockWorthType extends BukkitTaskType<SuperiorSkyblockWorthTask> {
 
     private final BukkitQuestsPlugin plugin;
 
     public SuperiorSkyblockWorthType(BukkitQuestsPlugin plugin) {
-        super("superiorskyblock_worth", TaskUtils.TASK_ATTRIBUTION_STRING, "Reach a certain island worth for SuperiorSkyblock.");
+        super("superiorskyblock_worth", TaskUtils.TASK_ATTRIBUTION_STRING, "Reach a certain island worth for SuperiorSkyblock.", SuperiorSkyblockWorthTask.SCHEMA);
         this.plugin = plugin;
-
-        super.addConfigValidator(TaskUtils.useRequiredConfigValidator(this, "worth"));
-        super.addConfigValidator(TaskUtils.useIntegerConfigValidator(this, "worth"));
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -42,14 +38,14 @@ public final class SuperiorSkyblockWorthType extends BukkitTaskType {
                 continue;
             }
 
-            for (TaskUtils.PendingTask pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, this)) {
+            for (TaskUtils.PendingTask<SuperiorSkyblockWorthTask> pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, this)) {
                 Quest quest = pendingTask.quest();
-                Task task = pendingTask.task();
+                SuperiorSkyblockWorthTask task = pendingTask.task();
                 TaskProgress taskProgress = pendingTask.taskProgress();
 
                 super.debug("Player island worth updated", quest.getId(), task.getId(), player.getUniqueId());
 
-                double islandLevelNeeded = Double.parseDouble(String.valueOf(task.getConfigValue("worth")));
+                double islandLevelNeeded = task.worth;
                 BigDecimal bd = new BigDecimal(islandLevelNeeded);
 
                 taskProgress.setProgress(event.getNewLevel().doubleValue());

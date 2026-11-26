@@ -7,22 +7,18 @@ import com.leonardobishop.quests.bukkit.util.constraint.TaskConstraintSet;
 import com.leonardobishop.quests.common.player.QPlayer;
 import com.leonardobishop.quests.common.player.questprogressfile.TaskProgress;
 import com.leonardobishop.quests.common.quest.Quest;
-import com.leonardobishop.quests.common.quest.Task;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.player.PlayerExpChangeEvent;
 
-public final class ExpEarnTaskType extends BukkitTaskType {
+public final class ExpEarnTaskType extends BukkitTaskType<ExpEarnTask> {
 
     private final BukkitQuestsPlugin plugin;
 
     public ExpEarnTaskType(BukkitQuestsPlugin plugin) {
-        super("expearn", TaskUtils.TASK_ATTRIBUTION_STRING, "Earn a set amount of exp.");
+        super("expearn", TaskUtils.TASK_ATTRIBUTION_STRING, "Earn a set amount of exp.", ExpEarnTask.SCHEMA);
         this.plugin = plugin;
-
-        super.addConfigValidator(TaskUtils.useRequiredConfigValidator(this, "amount"));
-        super.addConfigValidator(TaskUtils.useIntegerConfigValidator(this, "amount"));
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -36,16 +32,16 @@ public final class ExpEarnTaskType extends BukkitTaskType {
             return;
         }
 
-        for (TaskUtils.PendingTask pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, this, TaskConstraintSet.ALL)) {
+        for (TaskUtils.PendingTask<ExpEarnTask> pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, this, TaskConstraintSet.ALL)) {
             Quest quest = pendingTask.quest();
-            Task task = pendingTask.task();
+            ExpEarnTask task = pendingTask.task();
             TaskProgress taskProgress = pendingTask.taskProgress();
 
             int amountEarned = e.getAmount();
 
             super.debug("Player earned " + amountEarned + " XP", quest.getId(), task.getId(), player.getUniqueId());
 
-            int expNeeded = (int) task.getConfigValue("amount");
+            int expNeeded = task.amount;
 
             int progress = TaskUtils.incrementIntegerTaskProgress(taskProgress, amountEarned);
             super.debug("Updating task progress (now " + (progress) + ")", quest.getId(), task.getId(), player.getUniqueId());

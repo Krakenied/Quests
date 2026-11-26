@@ -1,7 +1,5 @@
 package com.leonardobishop.quests.bukkit.tasktype.type.dependent;
 
-import com.google.common.collect.HashBasedTable;
-import com.google.common.collect.Table;
 import com.leonardobishop.quests.bukkit.BukkitQuestsPlugin;
 import com.leonardobishop.quests.bukkit.item.QuestItem;
 import com.leonardobishop.quests.bukkit.tasktype.BukkitTaskType;
@@ -11,7 +9,6 @@ import com.leonardobishop.quests.bukkit.util.constraint.TaskConstraintSet;
 import com.leonardobishop.quests.common.player.QPlayer;
 import com.leonardobishop.quests.common.player.questprogressfile.TaskProgress;
 import com.leonardobishop.quests.common.quest.Quest;
-import com.leonardobishop.quests.common.quest.Task;
 import io.lumine.mythic.bukkit.MythicBukkit;
 import io.lumine.xikage.mythicmobs.MythicMobs;
 import org.bukkit.entity.Damageable;
@@ -26,17 +23,15 @@ import org.jspecify.annotations.NullMarked;
 import java.util.function.BiConsumer;
 
 @NullMarked
-public final class MythicMobsDealDamageTaskType extends BukkitTaskType {
+public final class MythicMobsDealDamageTaskType extends BukkitTaskType<MythicMobsDealDamageTask> {
 
     private final BukkitQuestsPlugin plugin;
-    private final Table<String, String, QuestItem> fixedQuestItemCache;
     private final BiConsumer<Entity, BiConsumer<String, Double>> entityConsumer;
 
     public MythicMobsDealDamageTaskType(final BukkitQuestsPlugin plugin) {
-        super("mythicmobs_dealdamage", TaskUtils.TASK_ATTRIBUTION_STRING, "Deal damage to specified MythicMobs mob.");
+        super("mythicmobs_dealdamage", TaskUtils.TASK_ATTRIBUTION_STRING, "Deal damage to specified MythicMobs mob.", MythicMobsDealDamageTask.SCHEMA);
 
         this.plugin = plugin;
-        this.fixedQuestItemCache = HashBasedTable.create();
 
         // MythicMobs 5
         if (CompatUtils.classExists("io.lumine.mythic.bukkit.MythicBukkit")) {
@@ -89,11 +84,6 @@ public final class MythicMobsDealDamageTaskType extends BukkitTaskType {
         entityConsumer = (entity, consumer) -> {};
     }
 
-    @Override
-    public void onReady() {
-        fixedQuestItemCache.clear();
-    }
-
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onEntityDamage(EntityDamageEvent event) {
         entityConsumer.accept(event.getEntity(), (mobName, level) -> this.handle(event, mobName, level));
@@ -126,31 +116,32 @@ public final class MythicMobsDealDamageTaskType extends BukkitTaskType {
         double health = damageable.getHealth();
         double damage = Math.clamp(finalDamage, 0.0d, health);
 
-        for (TaskUtils.PendingTask pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, this, TaskConstraintSet.ALL)) {
+        for (TaskUtils.PendingTask<MythicMobsDealDamageTask> pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, this, TaskConstraintSet.ALL)) {
             Quest quest = pendingTask.quest();
-            Task task = pendingTask.task();
+            MythicMobsDealDamageTask task = pendingTask.task();
             TaskProgress taskProgress = pendingTask.taskProgress();
 
             super.debug("Player damaged " + mobName + " for " + damage, quest.getId(), task.getId(), player.getUniqueId());
 
-            if (!TaskUtils.matchString(this, pendingTask, mobName, player.getUniqueId(), "name", "names", false, "name-match-mode", false)) {
+            if (!TaskUtils.matchString(this, pendingTask, task.names, task.nameMatchMode, mobName, player.getUniqueId(), false, false)) {
                 super.debug("Continuing...", quest.getId(), task.getId(), player.getUniqueId());
                 continue;
             }
 
-            int minMobLevel = (int) task.getConfigValue("min-level", -1);
+            int minMobLevel = task.minLevel;
             if (level < minMobLevel) {
                 super.debug("Minimum level is required and it is not high enough, continuing...", quest.getId(), task.getId(), player.getUniqueId());
                 continue;
             }
 
-            int requiredLevel = (int) task.getConfigValue("level", -1);
+            int requiredLevel = task.level;
             if (requiredLevel != -1 && level != requiredLevel) {
                 super.debug("Specific level is required and it does not match, continuing...", quest.getId(), task.getId(), player.getUniqueId());
                 continue;
             }
 
-            if (task.hasConfigKey("item")) {
+            QuestItem qi = task.item;
+            if (qi != null) {
                 if (item == null) {
                     super.debug("Specific item is required, player has no item in hand; continuing...", quest.getId(), task.getId(), player.getUniqueId());
                     continue;
@@ -158,14 +149,7 @@ public final class MythicMobsDealDamageTaskType extends BukkitTaskType {
 
                 super.debug("Specific item is required; player held item is of type '" + item.getType() + "'", quest.getId(), task.getId(), player.getUniqueId());
 
-                QuestItem qi;
-                if ((qi = fixedQuestItemCache.get(quest.getId(), task.getId())) == null) {
-                    QuestItem fetchedItem = TaskUtils.getConfigQuestItem(task, "item", "data");
-                    fixedQuestItemCache.put(quest.getId(), task.getId(), fetchedItem);
-                    qi = fetchedItem;
-                }
-
-                boolean exactMatch = TaskUtils.getConfigBoolean(task, "exact-match", true);
+                boolean exactMatch = task.exactMatch;
                 if (!qi.compareItemStack(item, exactMatch)) {
                     super.debug("Item does not match required item, continuing...", quest.getId(), task.getId(), player.getUniqueId());
                     continue;
@@ -174,7 +158,7 @@ public final class MythicMobsDealDamageTaskType extends BukkitTaskType {
                 }
             }
 
-            int amount = (int) task.getConfigValue("amount");
+            int amount = task.amount;
             double progress = Math.min(amount, TaskUtils.getDecimalTaskProgress(taskProgress) + damage);
 
             taskProgress.setProgress(progress);

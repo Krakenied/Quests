@@ -8,20 +8,17 @@ import com.leonardobishop.quests.bukkit.util.TaskUtils;
 import com.leonardobishop.quests.common.player.QPlayer;
 import com.leonardobishop.quests.common.player.questprogressfile.TaskProgress;
 import com.leonardobishop.quests.common.quest.Quest;
-import com.leonardobishop.quests.common.quest.Task;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
-public final class PermissionTaskType extends BukkitTaskType {
+public final class PermissionTaskType extends BukkitTaskType<PermissionTask> {
 
     private final BukkitQuestsPlugin plugin;
     private WrappedTask poll;
 
     public PermissionTaskType(BukkitQuestsPlugin plugin) {
-        super("permission", TaskUtils.TASK_ATTRIBUTION_STRING, "Test if a player has a permission");
+        super("permission", TaskUtils.TASK_ATTRIBUTION_STRING, "Test if a player has a permission", PermissionTask.SCHEMA);
         this.plugin = plugin;
-
-        super.addConfigValidator(TaskUtils.useRequiredConfigValidator(this, "permission"));
     }
 
     @Override
@@ -34,23 +31,21 @@ public final class PermissionTaskType extends BukkitTaskType {
                     if (qPlayer == null) {
                         continue;
                     }
-                    for (TaskUtils.PendingTask pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, PermissionTaskType.this)) {
+                    for (TaskUtils.PendingTask<PermissionTask> pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, PermissionTaskType.this)) {
                         Quest quest = pendingTask.quest();
-                        Task task = pendingTask.task();
+                        PermissionTask task = pendingTask.task();
                         TaskProgress taskProgress = pendingTask.taskProgress();
 
                         PermissionTaskType.super.debug("Polling permissions for player", quest.getId(), task.getId(), player.getUniqueId());
 
-                        String permission = (String) task.getConfigValue("permission");
-                        if (permission != null) {
-                            PermissionTaskType.super.debug("Checking permission '" + permission + "'", quest.getId(), task.getId(), player.getUniqueId());
-                            if (player.hasPermission(permission)) {
-                                PermissionTaskType.super.debug("Player has permission", quest.getId(), task.getId(), player.getUniqueId());
-                                PermissionTaskType.super.debug("Marking task as complete", quest.getId(), task.getId(), player.getUniqueId());
-                                taskProgress.setCompleted(true);
-                            } else {
-                                PermissionTaskType.super.debug("Player does not have permission", quest.getId(), task.getId(), player.getUniqueId());
-                            }
+                        String permission = task.permission;
+                        PermissionTaskType.super.debug("Checking permission '" + permission + "'", quest.getId(), task.getId(), player.getUniqueId());
+                        if (player.hasPermission(permission)) {
+                            PermissionTaskType.super.debug("Player has permission", quest.getId(), task.getId(), player.getUniqueId());
+                            PermissionTaskType.super.debug("Marking task as complete", quest.getId(), task.getId(), player.getUniqueId());
+                            taskProgress.setCompleted(true);
+                        } else {
+                            PermissionTaskType.super.debug("Player does not have permission", quest.getId(), task.getId(), player.getUniqueId());
                         }
                     }
                 }

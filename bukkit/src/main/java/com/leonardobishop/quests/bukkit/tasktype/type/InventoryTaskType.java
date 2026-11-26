@@ -1,7 +1,5 @@
 package com.leonardobishop.quests.bukkit.tasktype.type;
 
-import com.google.common.collect.HashBasedTable;
-import com.google.common.collect.Table;
 import com.leonardobishop.quests.bukkit.BukkitQuestsPlugin;
 import com.leonardobishop.quests.bukkit.item.QuestItem;
 import com.leonardobishop.quests.bukkit.tasktype.BukkitTaskType;
@@ -10,7 +8,6 @@ import com.leonardobishop.quests.bukkit.util.constraint.TaskConstraintSet;
 import com.leonardobishop.quests.common.player.QPlayer;
 import com.leonardobishop.quests.common.player.questprogressfile.TaskProgress;
 import com.leonardobishop.quests.common.quest.Quest;
-import com.leonardobishop.quests.common.quest.Task;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Player;
@@ -25,13 +22,12 @@ import org.bukkit.event.player.PlayerPickupItemEvent;
 
 import java.util.UUID;
 
-public final class InventoryTaskType extends BukkitTaskType {
+public final class InventoryTaskType extends BukkitTaskType<InventoryTask> {
 
     private final BukkitQuestsPlugin plugin;
-    private final Table<String, String, QuestItem> fixedQuestItemCache = HashBasedTable.create();
 
     public InventoryTaskType(BukkitQuestsPlugin plugin) {
-        super("inventory", TaskUtils.TASK_ATTRIBUTION_STRING, "Obtain a set of items.");
+        super("inventory", TaskUtils.TASK_ATTRIBUTION_STRING, "Obtain a set of items.", InventoryTask.SCHEMA);
         this.plugin = plugin;
 
         try {
@@ -39,23 +35,10 @@ public final class InventoryTaskType extends BukkitTaskType {
             plugin.getServer().getPluginManager().registerEvents(new BucketEntityListener(), plugin);
         } catch (ClassNotFoundException ignored) { } // server version cannot support event
 
-        super.addConfigValidator(TaskUtils.useRequiredConfigValidator(this, "amount"));
-        super.addConfigValidator(TaskUtils.useIntegerConfigValidator(this, "amount"));
-        super.addConfigValidator(TaskUtils.useRequiredConfigValidator(this, "item"));
-        super.addConfigValidator(TaskUtils.useItemStackConfigValidator(this, "item"));
-        super.addConfigValidator(TaskUtils.useIntegerConfigValidator(this, "data"));
-        super.addConfigValidator(TaskUtils.useBooleanConfigValidator(this, "exact-match"));
-        super.addConfigValidator(TaskUtils.useBooleanConfigValidator(this, "remove-items-when-complete"));
-        super.addConfigValidator(TaskUtils.useBooleanConfigValidator(this, "allow-partial-completion"));
     }
 
     @Override
-    public void onReady() {
-        fixedQuestItemCache.clear();
-    }
-
-    @Override
-    public void onStart(Quest quest, Task task, UUID playerUUID) {
+    public void onStart(Quest quest, InventoryTask task, UUID playerUUID) {
         checkInventory(Bukkit.getPlayer(playerUUID), 1L);
     }
 
@@ -113,27 +96,22 @@ public final class InventoryTaskType extends BukkitTaskType {
             return;
         }
 
-        for (TaskUtils.PendingTask pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, this, TaskConstraintSet.ALL)) {
+        for (TaskUtils.PendingTask<InventoryTask> pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, this, TaskConstraintSet.ALL)) {
             Quest quest = pendingTask.quest();
-            Task task = pendingTask.task();
+            InventoryTask task = pendingTask.task();
             TaskProgress taskProgress = pendingTask.taskProgress();
 
             super.debug("Inventory check triggered", quest.getId(), task.getId(), player.getUniqueId());
 
-            boolean allowPartial = TaskUtils.getConfigBoolean(task, "allow-partial-completion");
+            boolean allowPartial = task.allowPartialCompletion;
 
-            QuestItem qi;
-            if ((qi = fixedQuestItemCache.get(quest.getId(), task.getId())) == null) {
-                QuestItem fetchedItem = TaskUtils.getConfigQuestItem(task, "item", "data");
-                fixedQuestItemCache.put(quest.getId(), task.getId(), fetchedItem);
-                qi = fetchedItem;
-            }
+            QuestItem qi = task.item;
 
-            boolean exactMatch = TaskUtils.getConfigBoolean(task, "exact-match", true);
+            boolean exactMatch = task.exactMatch;
             int[] amountPerSlot = TaskUtils.getAmountsPerSlot(player, qi, exactMatch);
             super.debug("Player has " + amountPerSlot[36] + " of the required item", quest.getId(), task.getId(), player.getUniqueId());
 
-            int amount = (int) task.getConfigValue("amount");
+            int amount = task.amount;
 
             if (allowPartial) {
                 int progress = TaskUtils.getIntegerTaskProgress(taskProgress);
@@ -174,7 +152,7 @@ public final class InventoryTaskType extends BukkitTaskType {
                     taskProgress.setCompleted(true);
                     super.debug("Marking task as complete", quest.getId(), task.getId(), player.getUniqueId());
 
-                    boolean remove = TaskUtils.getConfigBoolean(task, "remove-items-when-complete");
+                    boolean remove = task.removeItemsWhenComplete;
 
                     if (remove) {
                         TaskUtils.removeItemsInSlots(player, amountPerSlot, progress);

@@ -7,7 +7,6 @@ import com.leonardobishop.quests.bukkit.util.constraint.TaskConstraintSet;
 import com.leonardobishop.quests.common.player.QPlayer;
 import com.leonardobishop.quests.common.player.questprogressfile.TaskProgress;
 import com.leonardobishop.quests.common.quest.Quest;
-import com.leonardobishop.quests.common.quest.Task;
 import org.black_ixx.playerpoints.event.PlayerPointsChangeEvent;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -16,16 +15,13 @@ import org.bukkit.event.EventPriority;
 
 import java.util.UUID;
 
-public final class PlayerPointsEarnTaskType extends BukkitTaskType {
+public final class PlayerPointsEarnTaskType extends BukkitTaskType<PlayerPointsEarnTask> {
 
     private final BukkitQuestsPlugin plugin;
 
     public PlayerPointsEarnTaskType(BukkitQuestsPlugin plugin) {
-        super("playerpoints_earn", TaskUtils.TASK_ATTRIBUTION_STRING, "Earn a set amount of points.");
+        super("playerpoints_earn", TaskUtils.TASK_ATTRIBUTION_STRING, "Earn a set amount of points.", PlayerPointsEarnTask.SCHEMA);
         this.plugin = plugin;
-
-        super.addConfigValidator(TaskUtils.useRequiredConfigValidator(this, "amount"));
-        super.addConfigValidator(TaskUtils.useIntegerConfigValidator(this, "amount"));
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -43,14 +39,14 @@ public final class PlayerPointsEarnTaskType extends BukkitTaskType {
             return;
         }
 
-        for (TaskUtils.PendingTask pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, this, TaskConstraintSet.ALL)) {
+        for (TaskUtils.PendingTask<PlayerPointsEarnTask> pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, this, TaskConstraintSet.ALL)) {
             Quest quest = pendingTask.quest();
-            Task task = pendingTask.task();
+            PlayerPointsEarnTask task = pendingTask.task();
             TaskProgress taskProgress = pendingTask.taskProgress();
 
             super.debug("Player points changed: " + change, quest.getId(), task.getId(), playerId);
 
-            int amount = (int) task.getConfigValue("amount");
+            int amount = task.amount;
 
             int progress = TaskUtils.getIntegerTaskProgress(taskProgress);
             int newProgress = change != 0 ? progress + change : 0;

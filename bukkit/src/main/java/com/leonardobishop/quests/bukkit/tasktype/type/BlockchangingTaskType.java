@@ -9,7 +9,6 @@ import com.leonardobishop.quests.bukkit.util.constraint.TaskConstraintSet;
 import com.leonardobishop.quests.common.player.QPlayer;
 import com.leonardobishop.quests.common.player.questprogressfile.TaskProgress;
 import com.leonardobishop.quests.common.quest.Quest;
-import com.leonardobishop.quests.common.quest.Task;
 import org.bukkit.block.Block;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.Entity;
@@ -19,21 +18,13 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.entity.EntityChangeBlockEvent;
 import org.jetbrains.annotations.NotNull;
 
-public final class BlockchangingTaskType extends BukkitTaskType {
+public final class BlockchangingTaskType extends BukkitTaskType<BlockchangingTask> {
 
     private final BukkitQuestsPlugin plugin;
 
     public BlockchangingTaskType(final @NotNull BukkitQuestsPlugin plugin) {
-        super("blockchanging", TaskUtils.TASK_ATTRIBUTION_STRING, "Change a set amount of certain blocks.");
+        super("blockchanging", TaskUtils.TASK_ATTRIBUTION_STRING, "Change a set amount of certain blocks.", BlockchangingTask.SCHEMA);
         this.plugin = plugin;
-
-        super.addConfigValidator(TaskUtils.useRequiredConfigValidator(this, "amount"));
-        super.addConfigValidator(TaskUtils.useIntegerConfigValidator(this, "amount"));
-        super.addConfigValidator(TaskUtils.useMaterialListConfigValidator(this, TaskUtils.MaterialListConfigValidatorMode.BLOCK, "from", "froms"));
-        super.addConfigValidator(TaskUtils.useMaterialListConfigValidator(this, TaskUtils.MaterialListConfigValidatorMode.BLOCK, "to", "tos"));
-        super.addConfigValidator(TaskUtils.useBooleanConfigValidator(this, "check-playerblocktracker"));
-        super.addConfigValidator(TaskUtils.useBooleanConfigValidator(this, "check-coreprotect"));
-        super.addConfigValidator(TaskUtils.useIntegerConfigValidator(this, "check-coreprotect-time"));
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -51,24 +42,24 @@ public final class BlockchangingTaskType extends BukkitTaskType {
         Block from = event.getBlock();
         BlockData toData = event.getBlockData();
 
-        for (TaskUtils.PendingTask pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, this, TaskConstraintSet.ALL)) {
+        for (TaskUtils.PendingTask<BlockchangingTask> pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, this, TaskConstraintSet.ALL)) {
             Quest quest = pendingTask.quest();
-            Task task = pendingTask.task();
+            BlockchangingTask task = pendingTask.task();
             TaskProgress taskProgress = pendingTask.taskProgress();
 
             super.debug("Player changed a block, from block is " + from.getType() + ", to block is " + event.getTo(), quest.getId(), task.getId(), player.getUniqueId());
 
-            if (!TaskUtils.matchBlock(this, pendingTask, from, player.getUniqueId(), "from", "froms")) {
+            if (!TaskUtils.matchBlock(this, pendingTask, task.froms, task.data, from, player.getUniqueId())) {
                 super.debug("Continuing...", quest.getId(), task.getId(), player.getUniqueId());
                 continue;
             }
 
-            if (!TaskUtils.matchBlock(this, pendingTask, toData, player.getUniqueId(), "to", "tos")) {
+            if (!TaskUtils.matchBlock(this, pendingTask, task.tos, task.data, toData, player.getUniqueId())) {
                 super.debug("Continuing...", quest.getId(), task.getId(), player.getUniqueId());
                 continue;
             }
 
-            boolean playerBlockTrackerEnabled = TaskUtils.getConfigBoolean(task, "check-playerblocktracker");
+            boolean playerBlockTrackerEnabled = task.checkPlayerBlockTracker;
 
             if (playerBlockTrackerEnabled) {
                 AbstractPlayerBlockTrackerHook playerBlockTrackerHook = plugin.getPlayerBlockTrackerHook();
@@ -92,7 +83,7 @@ public final class BlockchangingTaskType extends BukkitTaskType {
                 int progress = TaskUtils.incrementIntegerTaskProgress(taskProgress);
                 super.debug("Incrementing task progress (now " + progress + ")", quest.getId(), task.getId(), player.getUniqueId());
 
-                int amount = (int) task.getConfigValue("amount");
+                int amount = task.amount;
                 if (progress >= amount) {
                     super.debug("Marking task as complete", quest.getId(), task.getId(), player.getUniqueId());
                     taskProgress.setCompleted(true);
@@ -101,8 +92,8 @@ public final class BlockchangingTaskType extends BukkitTaskType {
                 TaskUtils.sendTrackAdvancement(player, quest, task, pendingTask, amount);
             };
 
-            boolean coreProtectEnabled = TaskUtils.getConfigBoolean(task, "check-coreprotect");
-            int coreProtectTime = (int) task.getConfigValue("check-coreprotect-time", 3600);
+            boolean coreProtectEnabled = task.checkCoreProtect;
+            int coreProtectTime = task.checkCoreProtectTime;
 
             if (coreProtectEnabled) {
                 AbstractCoreProtectHook coreProtectHook = plugin.getCoreProtectHook();

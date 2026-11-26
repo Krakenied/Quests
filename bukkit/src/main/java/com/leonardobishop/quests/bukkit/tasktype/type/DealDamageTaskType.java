@@ -1,7 +1,5 @@
 package com.leonardobishop.quests.bukkit.tasktype.type;
 
-import com.google.common.collect.HashBasedTable;
-import com.google.common.collect.Table;
 import com.leonardobishop.quests.bukkit.BukkitQuestsPlugin;
 import com.leonardobishop.quests.bukkit.item.QuestItem;
 import com.leonardobishop.quests.bukkit.tasktype.BukkitTaskType;
@@ -10,7 +8,6 @@ import com.leonardobishop.quests.bukkit.util.constraint.TaskConstraintSet;
 import com.leonardobishop.quests.common.player.QPlayer;
 import com.leonardobishop.quests.common.player.questprogressfile.TaskProgress;
 import com.leonardobishop.quests.common.quest.Quest;
-import com.leonardobishop.quests.common.quest.Task;
 import org.bukkit.entity.Creature;
 import org.bukkit.entity.Damageable;
 import org.bukkit.entity.Entity;
@@ -20,31 +17,13 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.inventory.ItemStack;
 
-public final class DealDamageTaskType extends BukkitTaskType {
+public final class DealDamageTaskType extends BukkitTaskType<DealDamageTask> {
 
     private final BukkitQuestsPlugin plugin;
-    private final Table<String, String, QuestItem> fixedQuestItemCache = HashBasedTable.create();
-    private final Table<String, String, QuestItem> fixedQuestProjectileItemCache = HashBasedTable.create();
 
     public DealDamageTaskType(BukkitQuestsPlugin plugin) {
-        super("dealdamage", TaskUtils.TASK_ATTRIBUTION_STRING, "Deal a certain amount of damage.");
+        super("dealdamage", TaskUtils.TASK_ATTRIBUTION_STRING, "Deal a certain amount of damage.", DealDamageTask.SCHEMA);
         this.plugin = plugin;
-
-        super.addConfigValidator(TaskUtils.useRequiredConfigValidator(this, "amount"));
-        super.addConfigValidator(TaskUtils.useIntegerConfigValidator(this, "amount"));
-        super.addConfigValidator(TaskUtils.useEntityListConfigValidator(this, "mob", "mobs"));
-        super.addConfigValidator(TaskUtils.useBooleanConfigValidator(this, "allow-only-creatures"));
-        super.addConfigValidator(TaskUtils.useItemStackConfigValidator(this, "item"));
-        super.addConfigValidator(TaskUtils.useItemStackConfigValidator(this, "projectile-item"));
-        super.addConfigValidator(TaskUtils.useIntegerConfigValidator(this, "data"));
-        super.addConfigValidator(TaskUtils.useBooleanConfigValidator(this, "exact-match"));
-        super.addConfigValidator(TaskUtils.useBooleanConfigValidator(this, "projectile-item-exact-match"));
-    }
-
-    @Override
-    public void onReady() {
-        fixedQuestItemCache.clear();
-        fixedQuestProjectileItemCache.clear();
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -75,26 +54,27 @@ public final class DealDamageTaskType extends BukkitTaskType {
         double health = damageable.getHealth();
         double damage = Math.clamp(finalDamage, 0.0d, health);
 
-        for (TaskUtils.PendingTask pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, this, TaskConstraintSet.ALL)) {
+        for (TaskUtils.PendingTask<DealDamageTask> pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, this, TaskConstraintSet.ALL)) {
             Quest quest = pendingTask.quest();
-            Task task = pendingTask.task();
+            DealDamageTask task = pendingTask.task();
             TaskProgress taskProgress = pendingTask.taskProgress();
 
             super.debug("Player damaged " + entity.getType() + " for " + damage, quest.getId(), task.getId(), player.getUniqueId());
 
-            boolean allowOnlyCreatures = TaskUtils.getConfigBoolean(task, "allow-only-creatures", true);
+            boolean allowOnlyCreatures = task.allowOnlyCreatures;
 
             if (allowOnlyCreatures && !(entity instanceof Creature)) {
                 super.debug(entity.getType() + " is not a creature but allow-only-creatures is true, continuing...", quest.getId(), task.getId(), player.getUniqueId());
                 continue;
             }
 
-            if (!TaskUtils.matchEntity(this, pendingTask, entity, player.getUniqueId())) {
+            if (!TaskUtils.matchEntity(this, pendingTask, task.mobs, entity, player.getUniqueId())) {
                 super.debug("Continuing...", quest.getId(), task.getId(), player.getUniqueId());
                 continue;
             }
 
-            if (task.hasConfigKey("item")) {
+            if (task.item != null) {
+                QuestItem qi = task.item;
                 if (item == null) {
                     super.debug("Specific item is required, player has no item in hand; continuing...", quest.getId(), task.getId(), player.getUniqueId());
                     continue;
@@ -102,14 +82,7 @@ public final class DealDamageTaskType extends BukkitTaskType {
 
                 super.debug("Specific item is required; player held item is of type '" + item.getType() + "'", quest.getId(), task.getId(), player.getUniqueId());
 
-                QuestItem qi;
-                if ((qi = fixedQuestItemCache.get(quest.getId(), task.getId())) == null) {
-                    QuestItem fetchedItem = TaskUtils.getConfigQuestItem(task, "item", "data");
-                    fixedQuestItemCache.put(quest.getId(), task.getId(), fetchedItem);
-                    qi = fetchedItem;
-                }
-
-                boolean exactMatch = TaskUtils.getConfigBoolean(task, "exact-match", true);
+                boolean exactMatch = task.exactMatch;
                 if (!qi.compareItemStack(item, exactMatch)) {
                     super.debug("Item does not match required item, continuing...", quest.getId(), task.getId(), player.getUniqueId());
                     continue;
@@ -118,7 +91,8 @@ public final class DealDamageTaskType extends BukkitTaskType {
                 }
             }
 
-            if (task.hasConfigKey("projectile-item")) {
+            if (task.projectileItem != null) {
+                QuestItem qi = task.projectileItem;
                 if (projectileItem == null) {
                     super.debug("Specific projectile item is required, no projectile item detected; continuing...", quest.getId(), task.getId(), player.getUniqueId());
                     continue;
@@ -126,14 +100,7 @@ public final class DealDamageTaskType extends BukkitTaskType {
 
                 super.debug("Specific projectile item is required; projectile item is of type '" + projectileItem.getType() + "'", quest.getId(), task.getId(), player.getUniqueId());
 
-                QuestItem qi;
-                if ((qi = fixedQuestProjectileItemCache.get(quest.getId(), task.getId())) == null) {
-                    QuestItem fetchedItem = TaskUtils.getConfigQuestItem(task, "projectile-item", "data");
-                    fixedQuestProjectileItemCache.put(quest.getId(), task.getId(), fetchedItem);
-                    qi = fetchedItem;
-                }
-
-                boolean exactMatch = TaskUtils.getConfigBoolean(task, "projectile-item-exact-match", true);
+                boolean exactMatch = task.projectileItemExactMatch;
                 if (!qi.compareItemStack(projectileItem, exactMatch)) {
                     super.debug("Projectile item does not match required item, continuing...", quest.getId(), task.getId(), player.getUniqueId());
                     continue;
@@ -142,7 +109,7 @@ public final class DealDamageTaskType extends BukkitTaskType {
                 }
             }
 
-            int amount = (int) task.getConfigValue("amount");
+            int amount = task.amount;
             double progress = Math.min(amount, TaskUtils.getDecimalTaskProgress(taskProgress) + damage);
 
             taskProgress.setProgress(progress);

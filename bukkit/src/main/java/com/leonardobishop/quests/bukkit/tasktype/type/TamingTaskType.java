@@ -7,7 +7,6 @@ import com.leonardobishop.quests.bukkit.util.constraint.TaskConstraintSet;
 import com.leonardobishop.quests.common.player.QPlayer;
 import com.leonardobishop.quests.common.player.questprogressfile.TaskProgress;
 import com.leonardobishop.quests.common.quest.Quest;
-import com.leonardobishop.quests.common.quest.Task;
 import org.bukkit.entity.AnimalTamer;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
@@ -15,17 +14,13 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.entity.EntityTameEvent;
 
-public final class TamingTaskType extends BukkitTaskType {
+public final class TamingTaskType extends BukkitTaskType<TamingTask> {
 
     private final BukkitQuestsPlugin plugin;
 
     public TamingTaskType(BukkitQuestsPlugin plugin) {
-        super("taming", TaskUtils.TASK_ATTRIBUTION_STRING, "Tame a set amount of certain animals.");
+        super("taming", TaskUtils.TASK_ATTRIBUTION_STRING, "Tame a set amount of certain animals.", TamingTask.SCHEMA);
         this.plugin = plugin;
-
-        super.addConfigValidator(TaskUtils.useRequiredConfigValidator(this, "amount"));
-        super.addConfigValidator(TaskUtils.useIntegerConfigValidator(this, "amount"));
-        super.addConfigValidator(TaskUtils.useEntityListConfigValidator(this, "mob", "mobs"));
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -46,14 +41,14 @@ public final class TamingTaskType extends BukkitTaskType {
 
         Entity entity = event.getEntity();
 
-        for (TaskUtils.PendingTask pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, this, TaskConstraintSet.ALL)) {
+        for (TaskUtils.PendingTask<TamingTask> pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, this, TaskConstraintSet.ALL)) {
             Quest quest = pendingTask.quest();
-            Task task = pendingTask.task();
+            TamingTask task = pendingTask.task();
             TaskProgress taskProgress = pendingTask.taskProgress();
 
             super.debug("Played tamed entity", quest.getId(), task.getId(), player.getUniqueId());
 
-            if (!TaskUtils.matchEntity(this, pendingTask, entity, player.getUniqueId())) {
+            if (!TaskUtils.matchEntity(this, pendingTask, task.mobs, entity, player.getUniqueId())) {
                 super.debug("Continuing...", quest.getId(), task.getId(), player.getUniqueId());
                 continue;
             }
@@ -61,7 +56,7 @@ public final class TamingTaskType extends BukkitTaskType {
             int progress = TaskUtils.incrementIntegerTaskProgress(taskProgress);
             super.debug("Incrementing task progress (now " + progress + ")", quest.getId(), task.getId(), player.getUniqueId());
 
-            int amount = (int) task.getConfigValue("amount");
+            int amount = task.amount;
 
             if (progress >= amount) {
                 super.debug("Marking task as complete", quest.getId(), task.getId(), player.getUniqueId());

@@ -7,7 +7,6 @@ import com.leonardobishop.quests.bukkit.util.constraint.TaskConstraintSet;
 import com.leonardobishop.quests.common.player.QPlayer;
 import com.leonardobishop.quests.common.player.questprogressfile.TaskProgress;
 import com.leonardobishop.quests.common.quest.Quest;
-import com.leonardobishop.quests.common.quest.Task;
 import org.bukkit.Location;
 import org.bukkit.entity.Boat;
 import org.bukkit.entity.Entity;
@@ -19,23 +18,19 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.vehicle.VehicleMoveEvent;
 
-import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
-public final class WalkingTaskType extends BukkitTaskType {
+public final class WalkingTaskType extends BukkitTaskType<WalkingTask> {
 
     private final BukkitQuestsPlugin plugin;
 
     public WalkingTaskType(BukkitQuestsPlugin plugin) {
-        super("walking", TaskUtils.TASK_ATTRIBUTION_STRING, "Walk a set distance.");
+        super("walking", TaskUtils.TASK_ATTRIBUTION_STRING, "Walk a set distance.", WalkingTask.SCHEMA);
         this.plugin = plugin;
-
-        super.addConfigValidator(TaskUtils.useRequiredConfigValidator(this, "distance"));
-        super.addConfigValidator(TaskUtils.useIntegerConfigValidator(this, "distance"));
-        super.addConfigValidator(TaskUtils.useAcceptedValuesConfigValidator(this, Mode.STRING_MODE_MAP.keySet(), "mode", "mode", false));
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -84,33 +79,14 @@ public final class WalkingTaskType extends BukkitTaskType {
             return;
         }
 
-        for (TaskUtils.PendingTask pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, this, TaskConstraintSet.ALL)) {
+        for (TaskUtils.PendingTask<WalkingTask> pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, this, TaskConstraintSet.ALL)) {
             Quest quest = pendingTask.quest();
-            Task task = pendingTask.task();
+            WalkingTask task = pendingTask.task();
             TaskProgress taskProgress = pendingTask.taskProgress();
 
             super.debug("Player moved", quest.getId(), task.getId(), player.getUniqueId());
 
-            Object modeObject = task.getConfigValue("mode");
-            EnumSet<Mode> modeSet = EnumSet.noneOf(Mode.class);
-
-            if (modeObject instanceof List<?> modeList) {
-                for (Object modeListElement : modeList) {
-                    //noinspection SuspiciousMethodCalls
-                    Mode mode = Mode.STRING_MODE_MAP.get(modeListElement);
-
-                    if (mode != null) {
-                        modeSet.add(mode);
-                    }
-                }
-            } else {
-                //noinspection SuspiciousMethodCalls
-                Mode mode = Mode.STRING_MODE_MAP.get(modeObject);
-
-                if (mode != null) {
-                    modeSet.add(mode);
-                }
-            }
+            Set<Mode> modeSet = task.modes;
 
             MODE_CHECK:
             if (!modeSet.isEmpty()) {
@@ -127,7 +103,7 @@ public final class WalkingTaskType extends BukkitTaskType {
             int progress = TaskUtils.incrementIntegerTaskProgress(taskProgress, distance);
             super.debug("Incrementing task progress (now " + progress + ")", quest.getId(), task.getId(), player.getUniqueId());
 
-            int distanceNeeded = (int) task.getConfigValue("distance");
+            int distanceNeeded = task.distance;
 
             if (progress >= distanceNeeded) {
                 super.debug("Marking task as complete", quest.getId(), task.getId(), player.getUniqueId());
@@ -138,7 +114,7 @@ public final class WalkingTaskType extends BukkitTaskType {
         }
     }
 
-    private enum Mode {
+    enum Mode {
         // Vehicles
         BOAT {
             @Override
@@ -337,7 +313,7 @@ public final class WalkingTaskType extends BukkitTaskType {
 
         public abstract boolean validate(final BukkitQuestsPlugin plugin, final Player player);
 
-        private static final Map<String, Mode> STRING_MODE_MAP = new HashMap<>() {{
+        static final Map<String, Mode> STRING_MODE_MAP = new HashMap<>() {{
             for (final Mode mode : Mode.values()) {
                 this.put(mode.name().toLowerCase(Locale.ROOT), mode);
             }

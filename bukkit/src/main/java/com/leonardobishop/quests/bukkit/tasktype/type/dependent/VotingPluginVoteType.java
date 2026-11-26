@@ -7,22 +7,18 @@ import com.leonardobishop.quests.bukkit.util.TaskUtils;
 import com.leonardobishop.quests.common.player.QPlayer;
 import com.leonardobishop.quests.common.player.questprogressfile.TaskProgress;
 import com.leonardobishop.quests.common.quest.Quest;
-import com.leonardobishop.quests.common.quest.Task;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 
-public final class VotingPluginVoteType extends BukkitTaskType {
+public final class VotingPluginVoteType extends BukkitTaskType<VotingPluginVoteTask> {
 
     private final BukkitQuestsPlugin plugin;
 
     public VotingPluginVoteType(BukkitQuestsPlugin plugin) {
-        super("votingplugin_vote", TaskUtils.TASK_ATTRIBUTION_STRING, "Vote a set amount of times.");
+        super("votingplugin_vote", TaskUtils.TASK_ATTRIBUTION_STRING, "Vote a set amount of times.", VotingPluginVoteTask.SCHEMA);
         this.plugin = plugin;
-
-        super.addConfigValidator(TaskUtils.useRequiredConfigValidator(this, "amount"));
-        super.addConfigValidator(TaskUtils.useIntegerConfigValidator(this, "amount"));
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -39,14 +35,14 @@ public final class VotingPluginVoteType extends BukkitTaskType {
             return;
         }
 
-        for (TaskUtils.PendingTask pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, this)) {
+        for (TaskUtils.PendingTask<VotingPluginVoteTask> pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, this)) {
             Quest quest = pendingTask.quest();
-            Task task = pendingTask.task();
+            VotingPluginVoteTask task = pendingTask.task();
             TaskProgress taskProgress = pendingTask.taskProgress();
 
             super.debug("Player voted", quest.getId(), task.getId(), player.getUniqueId());
 
-            int votesNeeded = (int) task.getConfigValue("amount");
+            int votesNeeded = task.amount;
 
             int progress = TaskUtils.incrementIntegerTaskProgress(taskProgress);
             super.debug("Incrementing task progress (now " + progress + ")", quest.getId(), task.getId(), player.getUniqueId());

@@ -6,7 +6,6 @@ import com.isnakebuzz.npcapi.enums.ClickType;
 import com.isnakebuzz.npcapi.events.NPCInteractEvent;
 import com.leonardobishop.quests.bukkit.BukkitQuestsPlugin;
 import com.leonardobishop.quests.bukkit.util.TaskUtils;
-import com.leonardobishop.quests.common.quest.Task;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 
@@ -17,7 +16,7 @@ public final class ServerNPCInteractTaskType extends InteractTaskType<String> {
     private final BukkitQuestsPlugin plugin;
 
     public ServerNPCInteractTaskType(BukkitQuestsPlugin plugin) {
-        super("servernpc_interact", TaskUtils.TASK_ATTRIBUTION_STRING, "Interact with a ServerNPC NPC to complete the quest.");
+        super("servernpc_interact", TaskUtils.TASK_ATTRIBUTION_STRING, "Interact with a ServerNPC NPC to complete the quest.", NpcInteractTask.STRING_ID_SCHEMA);
         this.plugin = plugin;
     }
 
@@ -41,10 +40,5 @@ public final class ServerNPCInteractTaskType extends InteractTaskType<String> {
         }
 
         handle(event.getPlayer(), npc.getDisplayName(), name, plugin);
-    }
-
-    @Override
-    public List<String> getNPCId(Task task) {
-        return TaskUtils.getConfigStringList(task, "npc-id");
     }
 }

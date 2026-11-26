@@ -1,7 +1,5 @@
 package com.leonardobishop.quests.bukkit.tasktype.type;
 
-import com.google.common.collect.HashBasedTable;
-import com.google.common.collect.Table;
 import com.leonardobishop.quests.bukkit.BukkitQuestsPlugin;
 import com.leonardobishop.quests.bukkit.item.QuestItem;
 import com.leonardobishop.quests.bukkit.tasktype.BukkitTaskType;
@@ -10,7 +8,6 @@ import com.leonardobishop.quests.bukkit.util.constraint.TaskConstraintSet;
 import com.leonardobishop.quests.common.player.QPlayer;
 import com.leonardobishop.quests.common.player.questprogressfile.TaskProgress;
 import com.leonardobishop.quests.common.quest.Quest;
-import com.leonardobishop.quests.common.quest.Task;
 import org.bukkit.Material;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
@@ -36,30 +33,14 @@ import java.util.WeakHashMap;
 /**
  * TODO: There is Paper PR to make obtaining the thrower UUID easier: <a href="https://github.com/PaperMC/Paper/pull/5736">Paper#5736</a>
  */
-public final class BarteringTaskType extends BukkitTaskType {
+public final class BarteringTaskType extends BukkitTaskType<BarteringTask> {
 
     private final BukkitQuestsPlugin plugin;
     private final Map<Piglin, UUID> piglin2ThrowerIdMap = new WeakHashMap<>();
-    private final Table<String, String, QuestItem> fixedQuestInputCache = HashBasedTable.create();
-    private final Table<String, String, QuestItem> fixedQuestOutputCache = HashBasedTable.create();
 
     public BarteringTaskType(final @NotNull BukkitQuestsPlugin plugin) {
-        super("bartering", TaskUtils.TASK_ATTRIBUTION_STRING, "Make a bartering interaction with a piglin.");
+        super("bartering", TaskUtils.TASK_ATTRIBUTION_STRING, "Make a bartering interaction with a piglin.", BarteringTask.SCHEMA);
         this.plugin = plugin;
-
-        this.addConfigValidator(TaskUtils.useRequiredConfigValidator(this, "amount"));
-        this.addConfigValidator(TaskUtils.useIntegerConfigValidator(this, "amount"));
-        this.addConfigValidator(TaskUtils.useItemStackConfigValidator(this, "input"));
-        this.addConfigValidator(TaskUtils.useItemStackConfigValidator(this, "output"));
-        this.addConfigValidator(TaskUtils.useBooleanConfigValidator(this, "input-exact-match"));
-        this.addConfigValidator(TaskUtils.useBooleanConfigValidator(this, "output-exact-match"));
-        this.addConfigValidator(TaskUtils.useAcceptedValuesConfigValidator(this, Mode.STRING_MODE_MAP.keySet(), "mode", null, false));
-    }
-
-    @Override
-    public void onReady() {
-        this.fixedQuestInputCache.clear();
-        this.fixedQuestOutputCache.clear();
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -136,48 +117,32 @@ public final class BarteringTaskType extends BukkitTaskType {
         final int inputAmount = input.getAmount();
         final int outputAmount = output.getAmount();
 
-        for (final TaskUtils.PendingTask pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, this, TaskConstraintSet.ALL)) {
+        for (final TaskUtils.PendingTask<BarteringTask> pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, this, TaskConstraintSet.ALL)) {
             final Quest quest = pendingTask.quest();
-            final Task task = pendingTask.task();
+            final BarteringTask task = pendingTask.task();
             final TaskProgress taskProgress = pendingTask.taskProgress();
 
             this.debug("Player completed a bartering interaction from " + inputAmount + " x " + input.getType() + " to " + outputAmount + " x " + output.getType(), quest.getId(), task.getId(), player.getUniqueId());
 
-            if (task.hasConfigKey("input")) {
-                QuestItem qi;
-                if ((qi = this.fixedQuestInputCache.get(quest.getId(), task.getId())) == null) {
-                    final QuestItem fetchedItem = TaskUtils.getConfigQuestItem(task, "input", "data");
-                    this.fixedQuestInputCache.put(quest.getId(), task.getId(), fetchedItem);
-                    qi = fetchedItem;
-                }
-
-                final boolean exactMatch = TaskUtils.getConfigBoolean(task, "input-exact-match", true);
+            if (task.input != null) {
+                QuestItem qi = task.input;
+                final boolean exactMatch = task.inputExactMatch;
                 if (!qi.compareItemStack(input, exactMatch)) {
                     this.debug("Input does not match, continuing...", quest.getId(), task.getId(), player.getUniqueId());
                     continue;
                 }
             }
 
-            if (task.hasConfigKey("output")) {
-                QuestItem qi;
-                if ((qi = this.fixedQuestOutputCache.get(quest.getId(), task.getId())) == null) {
-                    final QuestItem fetchedItem = TaskUtils.getConfigQuestItem(task, "output", "data");
-                    this.fixedQuestOutputCache.put(quest.getId(), task.getId(), fetchedItem);
-                    qi = fetchedItem;
-                }
-
-                final boolean exactMatch = TaskUtils.getConfigBoolean(task, "output-exact-match", true);
+            if (task.output != null) {
+                QuestItem qi = task.output;
+                final boolean exactMatch = task.outputExactMatch;
                 if (!qi.compareItemStack(output, exactMatch)) {
                     this.debug("Output does not match, continuing...", quest.getId(), task.getId(), player.getUniqueId());
                     continue;
                 }
             }
 
-            final Object modeObject = task.getConfigValue("mode");
-
-            // not suspicious at all ඞ
-            //noinspection SuspiciousMethodCalls
-            final Mode requiredMode = Mode.STRING_MODE_MAP.getOrDefault(modeObject, Mode.OUTPUT);
+            final Mode requiredMode = task.mode;
 
             final int itemAmount = switch (requiredMode) {
                 case INPUT -> inputAmount;
@@ -187,7 +152,7 @@ public final class BarteringTaskType extends BukkitTaskType {
             final int progress = TaskUtils.incrementIntegerTaskProgress(taskProgress, itemAmount);
             this.debug("Incrementing task progress (now " + progress + ")", quest.getId(), task.getId(), player.getUniqueId());
 
-            final int amount = (int) task.getConfigValue("amount");
+            final int amount = task.amount;
             if (progress >= amount) {
                 this.debug("Marking task as complete", quest.getId(), task.getId(), player.getUniqueId());
                 taskProgress.setCompleted(true);
@@ -197,11 +162,11 @@ public final class BarteringTaskType extends BukkitTaskType {
         }
     }
 
-    private enum Mode {
+    enum Mode {
         INPUT,
         OUTPUT;
 
-        private static final Map<String, BarteringTaskType.Mode> STRING_MODE_MAP = new HashMap<>() {{
+        static final Map<String, BarteringTaskType.Mode> STRING_MODE_MAP = new HashMap<>() {{
             for (final BarteringTaskType.Mode mode : BarteringTaskType.Mode.values()) {
                 this.put(mode.name().toLowerCase(Locale.ROOT), mode);
             }

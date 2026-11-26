@@ -7,7 +7,6 @@ import com.leonardobishop.quests.bukkit.util.constraint.TaskConstraintSet;
 import com.leonardobishop.quests.common.player.QPlayer;
 import com.leonardobishop.quests.common.player.questprogressfile.TaskProgress;
 import com.leonardobishop.quests.common.quest.Quest;
-import com.leonardobishop.quests.common.quest.Task;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -18,16 +17,14 @@ import world.bentobox.level.events.IslandLevelCalculatedEvent;
 import java.util.Set;
 import java.util.UUID;
 
-public final class BentoBoxLevelTaskType extends BukkitTaskType {
+public final class BentoBoxLevelTaskType extends BukkitTaskType<BentoBoxLevelTask> {
 
     private final BukkitQuestsPlugin plugin;
 
     public BentoBoxLevelTaskType(final @NotNull BukkitQuestsPlugin plugin) {
-        super("bentobox_level", TaskUtils.TASK_ATTRIBUTION_STRING, "Reach a certain island level in the level addon for BentoBox.");
+        super("bentobox_level", TaskUtils.TASK_ATTRIBUTION_STRING, "Reach a certain island level in the level addon for BentoBox.", BentoBoxLevelTask.SCHEMA);
         this.plugin = plugin;
 
-        this.addConfigValidator(TaskUtils.useRequiredConfigValidator(this, "level"));
-        this.addConfigValidator(TaskUtils.useIntegerConfigValidator(this, "level"));
     }
 
     @EventHandler
@@ -55,15 +52,15 @@ public final class BentoBoxLevelTaskType extends BukkitTaskType {
             return;
         }
 
-        for (final TaskUtils.PendingTask pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, this, TaskConstraintSet.ALL)) {
+        for (final TaskUtils.PendingTask<BentoBoxLevelTask> pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, this, TaskConstraintSet.ALL)) {
             final Quest quest = pendingTask.quest();
-            final Task task = pendingTask.task();
+            final BentoBoxLevelTask task = pendingTask.task();
             final TaskProgress taskProgress = pendingTask.taskProgress();
 
             this.debug("Player island level updated to " + level, quest.getId(), task.getId(), player.getUniqueId());
 
             //noinspection DataFlowIssue // TODO quest data rework
-            final long levelNeeded = ((Number) task.getConfigValue("level")).longValue();
+            final long levelNeeded = task.level;
 
             final long clampedLevel = Math.min(level, levelNeeded);
             taskProgress.setProgress(clampedLevel);

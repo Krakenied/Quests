@@ -8,7 +8,6 @@ import com.leonardobishop.quests.common.player.questprogressfile.QuestProgress;
 import com.leonardobishop.quests.common.player.questprogressfile.QuestProgressFile;
 import com.leonardobishop.quests.common.player.questprogressfile.TaskProgress;
 import com.leonardobishop.quests.common.quest.Quest;
-import com.leonardobishop.quests.common.quest.Task;
 import net.ess3.api.IEssentials;
 import net.ess3.api.events.UserBalanceUpdateEvent;
 import org.bukkit.Bukkit;
@@ -20,20 +19,17 @@ import org.jetbrains.annotations.NotNull;
 import java.math.BigDecimal;
 import java.util.UUID;
 
-public final class EssentialsBalanceTaskType extends BukkitTaskType {
+public final class EssentialsBalanceTaskType extends BukkitTaskType<EssentialsBalanceTask> {
 
     private final BukkitQuestsPlugin plugin;
 
     public EssentialsBalanceTaskType(BukkitQuestsPlugin plugin) {
-        super("essentials_balance", TaskUtils.TASK_ATTRIBUTION_STRING, "Reach a set amount of money.");
+        super("essentials_balance", TaskUtils.TASK_ATTRIBUTION_STRING, "Reach a set amount of money.", EssentialsBalanceTask.SCHEMA);
         this.plugin = plugin;
-
-        super.addConfigValidator(TaskUtils.useRequiredConfigValidator(this, "amount"));
-        super.addConfigValidator(TaskUtils.useIntegerConfigValidator(this, "amount"));
     }
 
     @Override
-    public void onStart(final @NotNull Quest quest, final @NotNull Task task, final @NotNull UUID playerUUID) {
+    public void onStart(final @NotNull Quest quest, final @NotNull EssentialsBalanceTask task, final @NotNull UUID playerUUID) {
         Player player = Bukkit.getPlayer(playerUUID);
         if (player == null || !player.isOnline() || player.hasMetadata("NPC")) {
             return;
@@ -59,7 +55,7 @@ public final class EssentialsBalanceTaskType extends BukkitTaskType {
         taskProgress.setProgress(balance);
         super.debug("Updating task progress (now " + balance + ")", quest.getId(), task.getId(), player.getUniqueId());
 
-        int earningsNeeded = (int) task.getConfigValue("amount");
+        int earningsNeeded = task.amount;
         BigDecimal amount = BigDecimal.valueOf(earningsNeeded);
         if (balance.compareTo(amount) >= 0) {
             super.debug("Marking task as complete", quest.getId(), task.getId(), player.getUniqueId());
@@ -79,9 +75,9 @@ public final class EssentialsBalanceTaskType extends BukkitTaskType {
             return;
         }
 
-        for (TaskUtils.PendingTask pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, this)) {
+        for (TaskUtils.PendingTask<EssentialsBalanceTask> pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, this)) {
             Quest quest = pendingTask.quest();
-            Task task = pendingTask.task();
+            EssentialsBalanceTask task = pendingTask.task();
             TaskProgress taskProgress = pendingTask.taskProgress();
 
             BigDecimal balance = event.getNewBalance();
@@ -90,7 +86,7 @@ public final class EssentialsBalanceTaskType extends BukkitTaskType {
             taskProgress.setProgress(balance);
             super.debug("Updating task progress (now " + balance + ")", quest.getId(), task.getId(), player.getUniqueId());
 
-            int earningsNeeded = (int) task.getConfigValue("amount");
+            int earningsNeeded = task.amount;
             BigDecimal amount = BigDecimal.valueOf(earningsNeeded);
             if (balance.compareTo(amount) >= 0) {
                 super.debug("Marking task as complete", quest.getId(), task.getId(), player.getUniqueId());

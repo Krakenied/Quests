@@ -7,23 +7,19 @@ import com.leonardobishop.quests.bukkit.util.constraint.TaskConstraintSet;
 import com.leonardobishop.quests.common.player.QPlayer;
 import com.leonardobishop.quests.common.player.questprogressfile.TaskProgress;
 import com.leonardobishop.quests.common.quest.Quest;
-import com.leonardobishop.quests.common.quest.Task;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 
-public final class PlayerkillingTaskType extends BukkitTaskType {
+public final class PlayerkillingTaskType extends BukkitTaskType<PlayerkillingTask> {
 
     private final BukkitQuestsPlugin plugin;
 
     public PlayerkillingTaskType(BukkitQuestsPlugin plugin) {
-        super("playerkilling", TaskUtils.TASK_ATTRIBUTION_STRING, "Kill a set amount of players.");
+        super("playerkilling", TaskUtils.TASK_ATTRIBUTION_STRING, "Kill a set amount of players.", PlayerkillingTask.SCHEMA);
         this.plugin = plugin;
-
-        super.addConfigValidator(TaskUtils.useRequiredConfigValidator(this, "amount"));
-        super.addConfigValidator(TaskUtils.useIntegerConfigValidator(this, "amount"));
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -41,12 +37,12 @@ public final class PlayerkillingTaskType extends BukkitTaskType {
             return;
         }
 
-        for (TaskUtils.PendingTask pendingTask : TaskUtils.getApplicableTasks(killer, qPlayer, this, TaskConstraintSet.ALL)) {
+        for (TaskUtils.PendingTask<PlayerkillingTask> pendingTask : TaskUtils.getApplicableTasks(killer, qPlayer, this, TaskConstraintSet.ALL)) {
             Quest quest = pendingTask.quest();
-            Task task = pendingTask.task();
+            PlayerkillingTask task = pendingTask.task();
             TaskProgress taskProgress = pendingTask.taskProgress();
 
-            int playerKillsNeeded = (int) task.getConfigValue("amount");
+            int playerKillsNeeded = task.amount;
 
             int progress = TaskUtils.incrementIntegerTaskProgress(taskProgress);
             super.debug("Incrementing task progress (now " + progress + ")", quest.getId(), task.getId(), killer.getUniqueId());

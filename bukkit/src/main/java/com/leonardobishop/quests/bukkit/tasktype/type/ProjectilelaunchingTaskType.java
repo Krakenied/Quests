@@ -7,7 +7,6 @@ import com.leonardobishop.quests.bukkit.util.constraint.TaskConstraintSet;
 import com.leonardobishop.quests.common.player.QPlayer;
 import com.leonardobishop.quests.common.player.questprogressfile.TaskProgress;
 import com.leonardobishop.quests.common.quest.Quest;
-import com.leonardobishop.quests.common.quest.Task;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
 import org.bukkit.event.EventHandler;
@@ -15,17 +14,13 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.entity.ProjectileLaunchEvent;
 import org.bukkit.projectiles.ProjectileSource;
 
-public final class ProjectilelaunchingTaskType extends BukkitTaskType {
+public final class ProjectilelaunchingTaskType extends BukkitTaskType<ProjectilelaunchingTask> {
 
     private final BukkitQuestsPlugin plugin;
 
     public ProjectilelaunchingTaskType(BukkitQuestsPlugin plugin) {
-        super("projectilelaunching", TaskUtils.TASK_ATTRIBUTION_STRING, "Launch a certain amount of projectiles.");
+        super("projectilelaunching", TaskUtils.TASK_ATTRIBUTION_STRING, "Launch a certain amount of projectiles.", ProjectilelaunchingTask.SCHEMA);
         this.plugin = plugin;
-
-        super.addConfigValidator(TaskUtils.useRequiredConfigValidator(this, "amount"));
-        super.addConfigValidator(TaskUtils.useIntegerConfigValidator(this, "amount"));
-        super.addConfigValidator(TaskUtils.useEntityListConfigValidator(this, "projectile", "projectiles"));
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -46,13 +41,13 @@ public final class ProjectilelaunchingTaskType extends BukkitTaskType {
             return;
         }
 
-        for (TaskUtils.PendingTask pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, this, TaskConstraintSet.ALL)) {
+        for (TaskUtils.PendingTask<ProjectilelaunchingTask> pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, this, TaskConstraintSet.ALL)) {
             Quest quest = pendingTask.quest();
-            Task task = pendingTask.task();
+            ProjectilelaunchingTask task = pendingTask.task();
             TaskProgress taskProgress = pendingTask.taskProgress();
 
             super.debug("Player launched a projectile, current entity is " + projectile.getType(), quest.getId(), task.getId(), player.getUniqueId());
-            if (!TaskUtils.matchEntity(this, pendingTask, projectile, player.getUniqueId(), "projectile", "projectiles")) {
+            if (!TaskUtils.matchEntity(this, pendingTask, task.projectiles, projectile, player.getUniqueId())) {
                 super.debug("Continuing...", quest.getId(), task.getId(), player.getUniqueId());
                 continue;
             }
@@ -60,7 +55,7 @@ public final class ProjectilelaunchingTaskType extends BukkitTaskType {
             int progress = TaskUtils.incrementIntegerTaskProgress(taskProgress);
             super.debug("Incrementing task progress (now " + progress + ")", quest.getId(), task.getId(), player.getUniqueId());
 
-            int amount = (int) task.getConfigValue("amount");
+            int amount = task.amount;
             if (progress >= amount) {
                 super.debug("Marking task as complete", quest.getId(), task.getId(), player.getUniqueId());
                 taskProgress.setCompleted(true);

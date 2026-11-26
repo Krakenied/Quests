@@ -1,7 +1,5 @@
 package com.leonardobishop.quests.bukkit.tasktype.type;
 
-import com.google.common.collect.HashBasedTable;
-import com.google.common.collect.Table;
 import com.leonardobishop.quests.bukkit.BukkitQuestsPlugin;
 import com.leonardobishop.quests.bukkit.item.QuestItem;
 import com.leonardobishop.quests.bukkit.tasktype.BukkitTaskType;
@@ -10,7 +8,6 @@ import com.leonardobishop.quests.bukkit.util.constraint.TaskConstraintSet;
 import com.leonardobishop.quests.common.player.QPlayer;
 import com.leonardobishop.quests.common.player.questprogressfile.TaskProgress;
 import com.leonardobishop.quests.common.quest.Quest;
-import com.leonardobishop.quests.common.quest.Task;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
@@ -27,26 +24,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
 
-public final class BrewingTaskType extends BukkitTaskType {
+public final class BrewingTaskType extends BukkitTaskType<BrewingTask> {
 
     private final BukkitQuestsPlugin plugin;
     private final HashMap<Location, UUID> brewingStands = new HashMap<>();
-    private final Table<String, String, QuestItem> fixedQuestItemCache = HashBasedTable.create();
 
     public BrewingTaskType(BukkitQuestsPlugin plugin) {
-        super("brewing", TaskUtils.TASK_ATTRIBUTION_STRING, "Brew a potion using specific ingredient.");
+        super("brewing", TaskUtils.TASK_ATTRIBUTION_STRING, "Brew a potion using specific ingredient.", BrewingTask.SCHEMA);
         this.plugin = plugin;
-
-        super.addConfigValidator(TaskUtils.useRequiredConfigValidator(this, "amount"));
-        super.addConfigValidator(TaskUtils.useIntegerConfigValidator(this, "amount"));
-        super.addConfigValidator(TaskUtils.useItemStackConfigValidator(this, "ingredient"));
-        super.addConfigValidator(TaskUtils.useIntegerConfigValidator(this, "data"));
-        super.addConfigValidator(TaskUtils.useBooleanConfigValidator(this, "exact-match"));
-    }
-
-    @Override
-    public void onReady() {
-        fixedQuestItemCache.clear();
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -92,22 +77,16 @@ public final class BrewingTaskType extends BukkitTaskType {
             }
         }
 
-        for (TaskUtils.PendingTask pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, this, TaskConstraintSet.ALL)) {
+        for (TaskUtils.PendingTask<BrewingTask> pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, this, TaskConstraintSet.ALL)) {
             Quest quest = pendingTask.quest();
-            Task task = pendingTask.task();
+            BrewingTask task = pendingTask.task();
             TaskProgress taskProgress = pendingTask.taskProgress();
 
-            if (task.hasConfigKey("ingredient")) {
-                QuestItem qi;
-                if ((qi = fixedQuestItemCache.get(quest.getId(), task.getId())) == null) {
-                    QuestItem fetchedItem = TaskUtils.getConfigQuestItem(task, "ingredient", "data");
-                    fixedQuestItemCache.put(quest.getId(), task.getId(), fetchedItem);
-                    qi = fetchedItem;
-                }
-
+            QuestItem qi = task.ingredient;
+            if (qi != null) {
                 super.debug("Player brewed " + eventAmount + " potions" + (ingredient != null ? " using " + ingredient.getType() : ""), quest.getId(), task.getId(), player.getUniqueId());
 
-                boolean exactMatch = TaskUtils.getConfigBoolean(task, "exact-match", true);
+                boolean exactMatch = task.exactMatch;
                 if (!qi.compareItemStack(ingredient, exactMatch)) {
                     super.debug("Ingredient does not match, continuing...", quest.getId(), task.getId(), player.getUniqueId());
                     continue;
@@ -117,7 +96,7 @@ public final class BrewingTaskType extends BukkitTaskType {
             int progress = TaskUtils.incrementIntegerTaskProgress(taskProgress, eventAmount);
             super.debug("Updating task progress (now " + (progress + eventAmount) + ")", quest.getId(), task.getId(), player.getUniqueId());
 
-            int amount = (int) task.getConfigValue("amount");
+            int amount = task.amount;
 
             if ((int) taskProgress.getProgress() >= amount) {
                 super.debug("Marking task as complete", quest.getId(), task.getId(), player.getUniqueId());

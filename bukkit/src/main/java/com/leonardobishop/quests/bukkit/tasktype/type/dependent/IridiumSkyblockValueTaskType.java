@@ -8,7 +8,6 @@ import com.leonardobishop.quests.bukkit.util.TaskUtils;
 import com.leonardobishop.quests.common.player.QPlayer;
 import com.leonardobishop.quests.common.player.questprogressfile.TaskProgress;
 import com.leonardobishop.quests.common.quest.Quest;
-import com.leonardobishop.quests.common.quest.Task;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -17,16 +16,13 @@ import org.bukkit.event.EventPriority;
 import java.util.UUID;
 
 //TODO update to latest ver
-public final class IridiumSkyblockValueTaskType extends BukkitTaskType {
+public final class IridiumSkyblockValueTaskType extends BukkitTaskType<IridiumSkyblockValueTask> {
 
     private final BukkitQuestsPlugin plugin;
 
     public IridiumSkyblockValueTaskType(BukkitQuestsPlugin plugin) {
-        super("iridiumskyblock_value", TaskUtils.TASK_ATTRIBUTION_STRING, "Reach a certain island value for Iridium Skyblock.");
+        super("iridiumskyblock_value", TaskUtils.TASK_ATTRIBUTION_STRING, "Reach a certain island value for Iridium Skyblock.", IridiumSkyblockValueTask.SCHEMA);
         this.plugin = plugin;
-
-        super.addConfigValidator(TaskUtils.useRequiredConfigValidator(this, "value"));
-        super.addConfigValidator(TaskUtils.useIntegerConfigValidator(this, "value"));
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -50,12 +46,12 @@ public final class IridiumSkyblockValueTaskType extends BukkitTaskType {
                 continue;
             }
 
-            for (TaskUtils.PendingTask pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, this)) {
+            for (TaskUtils.PendingTask<IridiumSkyblockValueTask> pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, this)) {
                 Quest quest = pendingTask.quest();
-                Task task = pendingTask.task();
+                IridiumSkyblockValueTask task = pendingTask.task();
                 TaskProgress taskProgress = pendingTask.taskProgress();
 
-                int islandValueNeeded = (int) task.getConfigValue("value");
+                int islandValueNeeded = task.value;
 
                 super.debug("Player island level updated to " + event.getIslandWorth(), quest.getId(), task.getId(), uuid);
 

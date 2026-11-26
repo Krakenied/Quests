@@ -7,23 +7,18 @@ import com.leonardobishop.quests.bukkit.util.constraint.TaskConstraintSet;
 import com.leonardobishop.quests.common.player.QPlayer;
 import com.leonardobishop.quests.common.player.questprogressfile.TaskProgress;
 import com.leonardobishop.quests.common.quest.Quest;
-import com.leonardobishop.quests.common.quest.Task;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 
-public final class CommandTaskType extends BukkitTaskType {
+public final class CommandTaskType extends BukkitTaskType<CommandTask> {
 
     private final BukkitQuestsPlugin plugin;
 
     public CommandTaskType(BukkitQuestsPlugin plugin) {
-        super("command", TaskUtils.TASK_ATTRIBUTION_STRING, "Execute a certain command.");
+        super("command", TaskUtils.TASK_ATTRIBUTION_STRING, "Execute a certain command.", CommandTask.SCHEMA);
         this.plugin = plugin;
-
-        super.addConfigValidator(TaskUtils.useRequiredConfigValidator(this, "command"));
-        super.addConfigValidator(TaskUtils.useBooleanConfigValidator(this, "ignore-case"));
-        super.addConfigValidator(TaskUtils.useEnumConfigValidator(this, TaskUtils.StringMatchMode.class, "command-match-mode", null, false));
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
@@ -43,16 +38,16 @@ public final class CommandTaskType extends BukkitTaskType {
             message = message.substring(1);
         }
 
-        for (TaskUtils.PendingTask pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, this, TaskConstraintSet.ALL)) {
+        for (TaskUtils.PendingTask<CommandTask> pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, this, TaskConstraintSet.ALL)) {
             Quest quest = pendingTask.quest();
-            Task task = pendingTask.task();
+            CommandTask task = pendingTask.task();
             TaskProgress taskProgress = pendingTask.taskProgress();
 
             super.debug("Player sent command '/" + message + "'", quest.getId(), task.getId(), player.getUniqueId());
 
-            boolean ignoreCase = TaskUtils.getConfigBoolean(task, "ignore-case");
+            boolean ignoreCase = task.ignoreCase;
 
-            if (!TaskUtils.matchString(this, pendingTask, message, player.getUniqueId(), "command", "commands", false, "command-match-mode", ignoreCase)) {
+            if (!TaskUtils.matchString(this, pendingTask, task.commands, task.commandMatchMode, message, player.getUniqueId(), false, ignoreCase)) {
                 super.debug("Continuing...", quest.getId(), task.getId(), player.getUniqueId());
                 continue;
             }

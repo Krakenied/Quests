@@ -8,24 +8,19 @@ import com.leonardobishop.quests.bukkit.util.constraint.TaskConstraintSet;
 import com.leonardobishop.quests.common.player.QPlayer;
 import com.leonardobishop.quests.common.player.questprogressfile.TaskProgress;
 import com.leonardobishop.quests.common.quest.Quest;
-import com.leonardobishop.quests.common.quest.Task;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.projectiles.ProjectileSource;
 
-public final class HatchingTaskType extends BukkitTaskType {
+public final class HatchingTaskType extends BukkitTaskType<HatchingTask> {
 
     private final BukkitQuestsPlugin plugin;
 
     public HatchingTaskType(BukkitQuestsPlugin plugin) {
-        super("hatching", TaskUtils.TASK_ATTRIBUTION_STRING, "Hatch a set amount of entities of certain types.");
+        super("hatching", TaskUtils.TASK_ATTRIBUTION_STRING, "Hatch a set amount of entities of certain types.", HatchingTask.SCHEMA);
         this.plugin = plugin;
-
-        super.addConfigValidator(TaskUtils.useRequiredConfigValidator(this, "amount"));
-        super.addConfigValidator(TaskUtils.useIntegerConfigValidator(this, "amount"));
-        super.addConfigValidator(TaskUtils.useEntityListConfigValidator(this, "mob", "mobs"));
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -51,14 +46,14 @@ public final class HatchingTaskType extends BukkitTaskType {
 
         EntityType hatchingType = event.getHatchingType();
 
-        for (TaskUtils.PendingTask pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, this, TaskConstraintSet.ALL)) {
+        for (TaskUtils.PendingTask<HatchingTask> pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, this, TaskConstraintSet.ALL)) {
             Quest quest = pendingTask.quest();
-            Task task = pendingTask.task();
+            HatchingTask task = pendingTask.task();
             TaskProgress taskProgress = pendingTask.taskProgress();
 
             super.debug("Player hatched " + hatchingType, quest.getId(), task.getId(), player.getUniqueId());
 
-            if (!TaskUtils.matchEntity(this, pendingTask, hatchingType, player.getUniqueId())) {
+            if (!TaskUtils.matchEntity(this, pendingTask, task.mobs, hatchingType, player.getUniqueId())) {
                 super.debug("Continuing...", quest.getId(), task.getId(), player.getUniqueId());
                 continue;
             }
@@ -66,7 +61,7 @@ public final class HatchingTaskType extends BukkitTaskType {
             int progress = TaskUtils.incrementIntegerTaskProgress(taskProgress, numHatches);
             super.debug("Incrementing task progress (now " + progress + ")", quest.getId(), task.getId(), player.getUniqueId());
 
-            int amount = (int) task.getConfigValue("amount");
+            int amount = task.amount;
 
             if (progress >= amount) {
                 super.debug("Marking task as complete", quest.getId(), task.getId(), player.getUniqueId());

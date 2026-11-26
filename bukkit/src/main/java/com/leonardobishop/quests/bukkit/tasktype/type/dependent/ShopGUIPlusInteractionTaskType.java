@@ -8,7 +8,6 @@ import com.leonardobishop.quests.bukkit.util.constraint.TaskConstraintSet;
 import com.leonardobishop.quests.common.player.QPlayer;
 import com.leonardobishop.quests.common.player.questprogressfile.TaskProgress;
 import com.leonardobishop.quests.common.quest.Quest;
-import com.leonardobishop.quests.common.quest.Task;
 import net.brcdev.shopgui.event.ShopPostTransactionEvent;
 import net.brcdev.shopgui.shop.Shop;
 import net.brcdev.shopgui.shop.ShopTransactionResult;
@@ -20,7 +19,7 @@ import org.jetbrains.annotations.NotNull;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
-public abstract class ShopGUIPlusInteractionTaskType extends BukkitTaskType {
+public abstract class ShopGUIPlusInteractionTaskType extends BukkitTaskType<ShopGUIPlusInteractionTask> {
 
     private final BukkitQuestsPlugin plugin;
     private Method getShopItemMethod;
@@ -28,11 +27,8 @@ public abstract class ShopGUIPlusInteractionTaskType extends BukkitTaskType {
     private Method getIdMethod;
 
     public ShopGUIPlusInteractionTaskType(BukkitQuestsPlugin plugin, @NotNull String type, String author, String description, String... aliases) {
-        super(type, author, description, aliases);
+        super(type, author, description, ShopGUIPlusInteractionTask.SCHEMA, aliases);
         this.plugin = plugin;
-
-        super.addConfigValidator(TaskUtils.useRequiredConfigValidator(this, "amount"));
-        super.addConfigValidator(TaskUtils.useIntegerConfigValidator(this, "amount"));
 
         try {
             Class<?> clazz = Class.forName("net.brcdev.shopgui.shop.ShopTransactionResult");
@@ -88,26 +84,26 @@ public abstract class ShopGUIPlusInteractionTaskType extends BukkitTaskType {
 
         int amountBought = result.getAmount();
 
-        for (TaskUtils.PendingTask pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, this, TaskConstraintSet.ALL)) {
+        for (TaskUtils.PendingTask<ShopGUIPlusInteractionTask> pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, this, TaskConstraintSet.ALL)) {
             Quest quest = pendingTask.quest();
-            Task task = pendingTask.task();
+            ShopGUIPlusInteractionTask task = pendingTask.task();
             TaskProgress taskProgress = pendingTask.taskProgress();
 
             super.debug("Player traded item (shop = " + shopId + ", item id = " + itemId + ", action = " + result.getShopAction().toString() + ")", quest.getId(), task.getId(), player.getUniqueId());
 
-            String taskShopId = (String) task.getConfigValue("shop-id");
+            String taskShopId = task.shopId;
             if (taskShopId == null || !taskShopId.equals(shopId)) {
                 super.debug("Shop id does not match required id, continuing...", quest.getId(), task.getId(), player.getUniqueId());
                 continue;
             }
 
-            String taskItemId = (String) task.getConfigValue("item-id");
+            String taskItemId = task.itemId;
             if (taskItemId == null || !taskItemId.equals(itemId)) {
                 super.debug("Item id does not match required id, continuing...", quest.getId(), task.getId(), player.getUniqueId());
                 continue;
             }
 
-            int amountNeeded = (int) task.getConfigValue("amount");
+            int amountNeeded = task.amount;
 
             int progress = TaskUtils.getIntegerTaskProgress(taskProgress);
             int newProgress = progress + amountBought;

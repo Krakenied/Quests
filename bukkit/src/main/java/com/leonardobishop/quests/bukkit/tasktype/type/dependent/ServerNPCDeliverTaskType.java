@@ -6,7 +6,6 @@ import com.isnakebuzz.npcapi.enums.ClickType;
 import com.isnakebuzz.npcapi.events.NPCInteractEvent;
 import com.leonardobishop.quests.bukkit.BukkitQuestsPlugin;
 import com.leonardobishop.quests.bukkit.util.TaskUtils;
-import com.leonardobishop.quests.common.quest.Task;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 
@@ -17,7 +16,7 @@ public final class ServerNPCDeliverTaskType extends DeliverTaskType<String> {
     private final BukkitQuestsPlugin plugin;
 
     public ServerNPCDeliverTaskType(BukkitQuestsPlugin plugin) {
-        super("servernpc_deliver", TaskUtils.TASK_ATTRIBUTION_STRING, "Deliver a set of items to a ServerNPC NPC.");
+        super("servernpc_deliver", TaskUtils.TASK_ATTRIBUTION_STRING, "Deliver a set of items to a ServerNPC NPC.", NpcDeliverTask.STRING_ID_SCHEMA);
         this.plugin = plugin;
     }
 
@@ -41,10 +40,5 @@ public final class ServerNPCDeliverTaskType extends DeliverTaskType<String> {
         }
 
         checkInventory(event.getPlayer(), npc.getDisplayName(), name, 1L, plugin);
-    }
-
-    @Override
-    public List<String> getNPCId(Task task) {
-        return TaskUtils.getConfigStringList(task, "npc-id");
     }
 }

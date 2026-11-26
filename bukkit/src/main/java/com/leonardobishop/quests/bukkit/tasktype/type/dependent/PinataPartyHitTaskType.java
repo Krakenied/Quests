@@ -7,22 +7,18 @@ import com.leonardobishop.quests.bukkit.util.constraint.TaskConstraintSet;
 import com.leonardobishop.quests.common.player.QPlayer;
 import com.leonardobishop.quests.common.player.questprogressfile.TaskProgress;
 import com.leonardobishop.quests.common.quest.Quest;
-import com.leonardobishop.quests.common.quest.Task;
 import me.hexedhero.pp.api.PinataHitEvent;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 
-public final class PinataPartyHitTaskType extends BukkitTaskType {
+public final class PinataPartyHitTaskType extends BukkitTaskType<PinataPartyHitTask> {
 
     private final BukkitQuestsPlugin plugin;
 
     public PinataPartyHitTaskType(BukkitQuestsPlugin plugin) {
-        super("pinataparty_hit", TaskUtils.TASK_ATTRIBUTION_STRING, "Hit the PinataParty pinata a set amount of times.");
+        super("pinataparty_hit", TaskUtils.TASK_ATTRIBUTION_STRING, "Hit the PinataParty pinata a set amount of times.", PinataPartyHitTask.SCHEMA);
         this.plugin = plugin;
-
-        super.addConfigValidator(TaskUtils.useRequiredConfigValidator(this, "amount"));
-        super.addConfigValidator(TaskUtils.useIntegerConfigValidator(this, "amount"));
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -37,9 +33,9 @@ public final class PinataPartyHitTaskType extends BukkitTaskType {
             return;
         }
 
-        for (TaskUtils.PendingTask pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, this, TaskConstraintSet.ALL)) {
+        for (TaskUtils.PendingTask<PinataPartyHitTask> pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, this, TaskConstraintSet.ALL)) {
             Quest quest = pendingTask.quest();
-            Task task = pendingTask.task();
+            PinataPartyHitTask task = pendingTask.task();
             TaskProgress taskProgress = pendingTask.taskProgress();
 
             super.debug("Player hit pinata", quest.getId(), task.getId(), player.getUniqueId());
@@ -47,7 +43,7 @@ public final class PinataPartyHitTaskType extends BukkitTaskType {
             int progress = TaskUtils.incrementIntegerTaskProgress(taskProgress);
             super.debug("Incrementing task progress (now " + progress + ")", quest.getId(), task.getId(), player.getUniqueId());
 
-            int amount = (int) task.getConfigValue("amount");
+            int amount = task.amount;
 
             if (progress >= amount) {
                 super.debug("Marking task as complete", quest.getId(), task.getId(), player.getUniqueId());

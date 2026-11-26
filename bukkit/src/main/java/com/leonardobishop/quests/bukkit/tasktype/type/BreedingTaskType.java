@@ -8,7 +8,6 @@ import com.leonardobishop.quests.bukkit.util.constraint.TaskConstraintSet;
 import com.leonardobishop.quests.common.player.QPlayer;
 import com.leonardobishop.quests.common.player.questprogressfile.TaskProgress;
 import com.leonardobishop.quests.common.quest.Quest;
-import com.leonardobishop.quests.common.quest.Task;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
@@ -19,17 +18,13 @@ import org.bukkit.event.entity.CreatureSpawnEvent;
 
 import java.util.List;
 
-public final class BreedingTaskType extends BukkitTaskType {
+public final class BreedingTaskType extends BukkitTaskType<BreedingTask> {
 
     private final BukkitQuestsPlugin plugin;
 
     public BreedingTaskType(BukkitQuestsPlugin plugin) {
-        super("breeding", TaskUtils.TASK_ATTRIBUTION_STRING, "Breed a set amount of certain animals.");
+        super("breeding", TaskUtils.TASK_ATTRIBUTION_STRING, "Breed a set amount of certain animals.", BreedingTask.SCHEMA);
         this.plugin = plugin;
-
-        super.addConfigValidator(TaskUtils.useRequiredConfigValidator(this, "amount"));
-        super.addConfigValidator(TaskUtils.useIntegerConfigValidator(this, "amount"));
-        super.addConfigValidator(TaskUtils.useEntityListConfigValidator(this, "mob", "mobs"));
 
         try {
             Class.forName("io.papermc.paper.event.entity.EntityFertilizeEggEvent");
@@ -95,14 +90,14 @@ public final class BreedingTaskType extends BukkitTaskType {
         AbstractWildStackerHook wildStackerHook = this.plugin.getWildStackerHook();
         int eventAmount = (wildStackerHook != null) ? wildStackerHook.getEntityAmount(entity) : 1;
 
-        for (TaskUtils.PendingTask pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, this, TaskConstraintSet.ALL)) {
+        for (TaskUtils.PendingTask<BreedingTask> pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, this, TaskConstraintSet.ALL)) {
             Quest quest = pendingTask.quest();
-            Task task = pendingTask.task();
+            BreedingTask task = pendingTask.task();
             TaskProgress taskProgress = pendingTask.taskProgress();
 
             super.debug("Player bred an entity", quest.getId(), task.getId(), player.getUniqueId());
 
-            if (!TaskUtils.matchEntity(this, pendingTask, entity, player.getUniqueId())) {
+            if (!TaskUtils.matchEntity(this, pendingTask, task.mobs, entity, player.getUniqueId())) {
                 super.debug("Continuing...", quest.getId(), task.getId(), player.getUniqueId());
                 continue;
             }
@@ -110,7 +105,7 @@ public final class BreedingTaskType extends BukkitTaskType {
             int progress = TaskUtils.incrementIntegerTaskProgress(taskProgress, eventAmount);
             super.debug("Incrementing task progress (now " + progress + ")", quest.getId(), task.getId(), player.getUniqueId());
 
-            int amount = (int) task.getConfigValue("amount");
+            int amount = task.amount;
             if (progress >= amount) {
                 super.debug("Marking task as complete", quest.getId(), task.getId(), player.getUniqueId());
                 taskProgress.setCompleted(true);

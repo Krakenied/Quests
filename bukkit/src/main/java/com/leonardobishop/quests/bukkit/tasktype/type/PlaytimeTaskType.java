@@ -11,23 +11,17 @@ import com.leonardobishop.quests.bukkit.util.constraint.TaskConstraintSet;
 import com.leonardobishop.quests.common.player.QPlayer;
 import com.leonardobishop.quests.common.player.questprogressfile.TaskProgress;
 import com.leonardobishop.quests.common.quest.Quest;
-import com.leonardobishop.quests.common.quest.Task;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
-import org.jspecify.annotations.NonNull;
 
-public final class PlaytimeTaskType extends BukkitTaskType {
+public final class PlaytimeTaskType extends BukkitTaskType<PlaytimeTask> {
 
     private final BukkitQuestsPlugin plugin;
     private WrappedTask poll;
 
     public PlaytimeTaskType(BukkitQuestsPlugin plugin) {
-        super("playtime", TaskUtils.TASK_ATTRIBUTION_STRING, "Track the amount of playing time a user has been on");
+        super("playtime", TaskUtils.TASK_ATTRIBUTION_STRING, "Track the amount of playing time a user has been on", PlaytimeTask.SCHEMA);
         this.plugin = plugin;
-
-        super.addConfigValidator(TaskUtils.useBooleanConfigValidator(this, "ignore-afk"));
-        super.addConfigValidator(TaskUtils.useRequiredConfigValidator(this, "minutes"));
-        super.addConfigValidator(TaskUtils.useIntegerConfigValidator(this, "minutes"));
     }
 
     @Override
@@ -56,14 +50,14 @@ public final class PlaytimeTaskType extends BukkitTaskType {
             return;
         }
 
-        for (TaskUtils.PendingTask pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, this, TaskConstraintSet.ALL)) {
+        for (TaskUtils.PendingTask<PlaytimeTask> pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, this, TaskConstraintSet.ALL)) {
             Quest quest = pendingTask.quest();
-            Task task = pendingTask.task();
+            PlaytimeTask task = pendingTask.task();
             TaskProgress taskProgress = pendingTask.taskProgress();
 
             super.debug("Polling playtime for player", quest.getId(), task.getId(), player.getUniqueId());
 
-            boolean ignoreAfk = TaskUtils.getConfigBoolean(task, "ignore-afk", false);
+            boolean ignoreAfk = task.ignoreAfk;
 
             if (ignoreAfk) {
                 super.debug("ignore-afk is enabled, checking hooks...", quest.getId(), task.getId(), player.getUniqueId());
@@ -86,7 +80,7 @@ public final class PlaytimeTaskType extends BukkitTaskType {
                 }
             }
 
-            int minutes = (int) task.getConfigValue("minutes");
+            int minutes = task.minutes;
             int progress = TaskUtils.incrementIntegerTaskProgress(taskProgress);
             super.debug("Incrementing task progress (now " + progress + ")", quest.getId(), task.getId(), player.getUniqueId());
 
@@ -106,8 +100,4 @@ public final class PlaytimeTaskType extends BukkitTaskType {
 //        }
     }
 
-    @Override
-    public @NonNull Object getGoal(final @NonNull Task task) {
-        return task.getConfigValue("minutes", "-");
-    }
 }

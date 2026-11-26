@@ -8,7 +8,6 @@ import com.leonardobishop.quests.bukkit.util.constraint.TaskConstraintSet;
 import com.leonardobishop.quests.common.player.QPlayer;
 import com.leonardobishop.quests.common.player.questprogressfile.TaskProgress;
 import com.leonardobishop.quests.common.quest.Quest;
-import com.leonardobishop.quests.common.quest.Task;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -17,16 +16,13 @@ import org.bukkit.event.EventPriority;
 import java.util.List;
 import java.util.UUID;
 
-public final class BedWars1058WinTaskType extends BukkitTaskType {
+public final class BedWars1058WinTaskType extends BukkitTaskType<BedWars1058WinTask> {
 
     private final BukkitQuestsPlugin plugin;
 
     public BedWars1058WinTaskType(BukkitQuestsPlugin plugin) {
-        super("bedwars1058_win", TaskUtils.TASK_ATTRIBUTION_STRING, "Win a game of BedWars in BedWars1058.");
+        super("bedwars1058_win", TaskUtils.TASK_ATTRIBUTION_STRING, "Win a game of BedWars in BedWars1058.", BedWars1058WinTask.SCHEMA);
         this.plugin = plugin;
-
-        super.addConfigValidator(TaskUtils.useRequiredConfigValidator(this, "amount"));
-        super.addConfigValidator(TaskUtils.useIntegerConfigValidator(this, "amount"));
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -52,9 +48,9 @@ public final class BedWars1058WinTaskType extends BukkitTaskType {
             return;
         }
 
-        for (TaskUtils.PendingTask pendingTask : TaskUtils.getApplicableTasks(winner, qWinner, this, TaskConstraintSet.ALL)) {
+        for (TaskUtils.PendingTask<BedWars1058WinTask> pendingTask : TaskUtils.getApplicableTasks(winner, qWinner, this, TaskConstraintSet.ALL)) {
             Quest quest = pendingTask.quest();
-            Task task = pendingTask.task();
+            BedWars1058WinTask task = pendingTask.task();
             TaskProgress taskProgress = pendingTask.taskProgress();
 
             super.debug("Player won a BedWars game", quest.getId(), task.getId(), winner.getUniqueId());
@@ -62,7 +58,7 @@ public final class BedWars1058WinTaskType extends BukkitTaskType {
             int progress = TaskUtils.incrementIntegerTaskProgress(taskProgress);
             super.debug("Incrementing task progress (now " + progress + ")", quest.getId(), task.getId(), winner.getUniqueId());
 
-            int amount = (int) task.getConfigValue("amount");
+            int amount = task.amount;
             if (progress >= amount) {
                 super.debug("Marking task as complete", quest.getId(), task.getId(), winner.getUniqueId());
                 taskProgress.setCompleted(true);

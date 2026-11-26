@@ -1,52 +1,24 @@
 package com.leonardobishop.quests.bukkit.tasktype.type.dependent;
 
-import com.google.common.collect.HashBasedTable;
-import com.google.common.collect.Table;
 import com.leonardobishop.quests.bukkit.BukkitQuestsPlugin;
 import com.leonardobishop.quests.bukkit.item.QuestItem;
 import com.leonardobishop.quests.bukkit.tasktype.BukkitTaskType;
 import com.leonardobishop.quests.bukkit.util.TaskUtils;
 import com.leonardobishop.quests.bukkit.util.chat.Chat;
 import com.leonardobishop.quests.bukkit.util.constraint.TaskConstraintSet;
-import com.leonardobishop.quests.common.config.ConfigProblem;
 import com.leonardobishop.quests.common.player.QPlayer;
 import com.leonardobishop.quests.common.player.questprogressfile.TaskProgress;
 import com.leonardobishop.quests.common.quest.Quest;
-import com.leonardobishop.quests.common.quest.Task;
+import com.leonardobishop.quests.common.tasktype.key.TaskSchema;
 import org.bukkit.entity.Player;
 
 import java.util.List;
 
-public abstract class DeliverTaskType<T> extends BukkitTaskType {
+public abstract class DeliverTaskType<T> extends BukkitTaskType<NpcDeliverTask<T>> {
 
-    private final Table<String, String, QuestItem> fixedQuestItemCache = HashBasedTable.create();
-
-    public DeliverTaskType(String type, String author, String description) {
-        super(type, author, description);
-
-        super.addConfigValidator((config, problems) -> {
-            if (config.containsKey("npc-name") && config.containsKey("npc-id")) {
-                problems.add(new ConfigProblem(ConfigProblem.ConfigProblemType.WARNING,
-                        "Both npc-name and npc-id is specified; npc-name will be ignored", null, "npc-name"));
-            }
-        });
-
-        super.addConfigValidator(TaskUtils.useRequiredConfigValidator(this, "amount"));
-        super.addConfigValidator(TaskUtils.useIntegerConfigValidator(this, "amount"));
-        super.addConfigValidator(TaskUtils.useRequiredConfigValidator(this, "item"));
-        super.addConfigValidator(TaskUtils.useItemStackConfigValidator(this, "item"));
-        super.addConfigValidator(TaskUtils.useIntegerConfigValidator(this, "data"));
-        super.addConfigValidator(TaskUtils.useBooleanConfigValidator(this, "exact-match"));
-        super.addConfigValidator(TaskUtils.useBooleanConfigValidator(this, "remove-items-when-complete"));
-        super.addConfigValidator(TaskUtils.useBooleanConfigValidator(this, "allow-partial-completion"));
+    public DeliverTaskType(String type, String author, String description, TaskSchema<NpcDeliverTask<T>> schema) {
+        super(type, author, description, schema);
     }
-
-    @Override
-    public void onReady() {
-        fixedQuestItemCache.clear();
-    }
-
-    public abstract List<T> getNPCId(Task task);
 
     public void checkInventory(Player player, T npcId, String npcName, long delay, BukkitQuestsPlugin plugin) {
         if (player.hasMetadata("NPC") || !player.isOnline()) return;
@@ -65,21 +37,21 @@ public abstract class DeliverTaskType<T> extends BukkitTaskType {
 
         boolean nameCorrected = false;
 
-        for (TaskUtils.PendingTask pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, this, TaskConstraintSet.ALL)) {
+        for (TaskUtils.PendingTask<NpcDeliverTask<T>> pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, this, TaskConstraintSet.ALL)) {
             Quest quest = pendingTask.quest();
-            Task task = pendingTask.task();
+            NpcDeliverTask<T> task = pendingTask.task();
             TaskProgress taskProgress = pendingTask.taskProgress();
 
             super.debug("Player clicked NPC", quest.getId(), task.getId(), player.getUniqueId());
 
-            List<T> configNPCId = getNPCId(task);
+            List<T> configNPCId = task.npcIds;
             if (configNPCId != null) {
                 if (!configNPCId.contains(npcId)) {
                     super.debug("NPC id " + npcId + " does not match required id, continuing...", quest.getId(), task.getId(), player.getUniqueId());
                     continue;
                 }
             } else {
-                String configNPCName = (String) task.getConfigValue("npc-name");
+                String configNPCName = task.npcName;
                 if (configNPCName != null) {
                     if (npcName == null) {
                         super.debug("NPC name is empty and does not match required name, continuing...", quest.getId(), task.getId(), player.getUniqueId());
@@ -98,20 +70,15 @@ public abstract class DeliverTaskType<T> extends BukkitTaskType {
                 }
             }
 
-            boolean allowPartial = TaskUtils.getConfigBoolean(task, "allow-partial-completion");
+            boolean allowPartial = task.allowPartialCompletion;
 
-            QuestItem qi;
-            if ((qi = fixedQuestItemCache.get(quest.getId(), task.getId())) == null) {
-                QuestItem fetchedItem = TaskUtils.getConfigQuestItem(task, "item", "data");
-                fixedQuestItemCache.put(quest.getId(), task.getId(), fetchedItem);
-                qi = fetchedItem;
-            }
+            QuestItem qi = task.item;
 
-            boolean exactMatch = TaskUtils.getConfigBoolean(task, "exact-match", true);
+            boolean exactMatch = task.exactMatch;
             int[] amountPerSlot = TaskUtils.getAmountsPerSlot(player, qi, exactMatch);
             super.debug("Player has " + amountPerSlot[36] + " of the required item", quest.getId(), task.getId(), player.getUniqueId());
 
-            int amount = (int) task.getConfigValue("amount");
+            int amount = task.amount;
 
             if (allowPartial) {
                 int progress = TaskUtils.getIntegerTaskProgress(taskProgress);
@@ -143,7 +110,7 @@ public abstract class DeliverTaskType<T> extends BukkitTaskType {
                     taskProgress.setCompleted(true);
                     super.debug("Marking task as complete", quest.getId(), task.getId(), player.getUniqueId());
 
-                    boolean remove = TaskUtils.getConfigBoolean(task, "remove-items-when-complete");
+                    boolean remove = task.removeItemsWhenComplete;
 
                     if (remove) {
                         TaskUtils.removeItemsInSlots(player, amountPerSlot, progress);

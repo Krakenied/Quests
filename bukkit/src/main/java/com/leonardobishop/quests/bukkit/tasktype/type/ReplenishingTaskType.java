@@ -11,25 +11,19 @@ import com.leonardobishop.quests.bukkit.util.constraint.TaskConstraintSet;
 import com.leonardobishop.quests.common.player.QPlayer;
 import com.leonardobishop.quests.common.player.questprogressfile.TaskProgress;
 import com.leonardobishop.quests.common.quest.Quest;
-import com.leonardobishop.quests.common.quest.Task;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 
-public final class ReplenishingTaskType extends BukkitTaskType {
+public final class ReplenishingTaskType extends BukkitTaskType<ReplenishingTask> {
 
     private final BukkitQuestsPlugin plugin;
 
     public ReplenishingTaskType(BukkitQuestsPlugin plugin) {
-        super("replenishing", TaskUtils.TASK_ATTRIBUTION_STRING, "Replenish a set amount of certain blocks or entities.");
+        super("replenishing", TaskUtils.TASK_ATTRIBUTION_STRING, "Replenish a set amount of certain blocks or entities.", ReplenishingTask.SCHEMA);
         this.plugin = plugin;
-
-        super.addConfigValidator(TaskUtils.useRequiredConfigValidator(this, "amount"));
-        super.addConfigValidator(TaskUtils.useIntegerConfigValidator(this, "amount"));
-        super.addConfigValidator(TaskUtils.useMaterialListConfigValidator(this, TaskUtils.MaterialListConfigValidatorMode.BLOCK, "block", "blocks"));
-        super.addConfigValidator(TaskUtils.useEntityListConfigValidator(this, "mob", "mobs"));
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -52,20 +46,20 @@ public final class ReplenishingTaskType extends BukkitTaskType {
         final Block block = inventory instanceof final LootableBlockInventory blockInventory ? blockInventory.getBlock() : null;
         final Entity entity = inventory instanceof final LootableEntityInventory entityInventory ? entityInventory.getEntity() : null;
 
-        for (TaskUtils.PendingTask pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, this, TaskConstraintSet.ALL)) {
+        for (TaskUtils.PendingTask<ReplenishingTask> pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, this, TaskConstraintSet.ALL)) {
             Quest quest = pendingTask.quest();
-            Task task = pendingTask.task();
+            ReplenishingTask task = pendingTask.task();
             TaskProgress taskProgress = pendingTask.taskProgress();
 
             if (block != null) {
                 super.debug("Player replenished a block, current block is " + block.getType(), quest.getId(), task.getId(), player.getUniqueId());
-                if (!TaskUtils.matchBlock(this, pendingTask, block, player.getUniqueId())) {
+                if (!TaskUtils.matchBlock(this, pendingTask, task.blocks, task.data, block, player.getUniqueId())) {
                     super.debug("Continuing...", quest.getId(), task.getId(), player.getUniqueId());
                     continue;
                 }
             } else if (entity != null) {
                 super.debug("Player replenished an entity, current entity is " + entity.getType(), quest.getId(), task.getId(), player.getUniqueId());
-                if (!TaskUtils.matchEntity(this, pendingTask, entity, player.getUniqueId())) {
+                if (!TaskUtils.matchEntity(this, pendingTask, task.mobs, entity, player.getUniqueId())) {
                     super.debug("Continuing...", quest.getId(), task.getId(), player.getUniqueId());
                     continue;
                 }
@@ -76,7 +70,7 @@ public final class ReplenishingTaskType extends BukkitTaskType {
             int progress = TaskUtils.incrementIntegerTaskProgress(taskProgress);
             super.debug("Incrementing task progress (now " + progress + ")", quest.getId(), task.getId(), player.getUniqueId());
 
-            int amount = (int) task.getConfigValue("amount");
+            int amount = task.amount;
             if (progress >= amount) {
                 super.debug("Marking task as complete", quest.getId(), task.getId(), player.getUniqueId());
                 taskProgress.setCompleted(true);

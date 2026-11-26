@@ -7,7 +7,6 @@ import com.leonardobishop.quests.bukkit.util.constraint.TaskConstraintSet;
 import com.leonardobishop.quests.common.player.QPlayer;
 import com.leonardobishop.quests.common.player.questprogressfile.TaskProgress;
 import com.leonardobishop.quests.common.quest.Quest;
-import com.leonardobishop.quests.common.quest.Task;
 import com.willfp.ecomobs.event.EcoMobKillEvent;
 import com.willfp.ecomobs.mob.EcoMob;
 import com.willfp.ecomobs.mob.LivingMob;
@@ -15,18 +14,13 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 
-public final class EcoMobsKillingTaskType extends BukkitTaskType {
+public final class EcoMobsKillingTaskType extends BukkitTaskType<EcoMobsKillingTask> {
 
     private final BukkitQuestsPlugin plugin;
 
     public EcoMobsKillingTaskType(BukkitQuestsPlugin plugin) {
-        super("ecomobs_killing", TaskUtils.TASK_ATTRIBUTION_STRING, "Kill a set amount of an EcoMobs entity.");
+        super("ecomobs_killing", TaskUtils.TASK_ATTRIBUTION_STRING, "Kill a set amount of an EcoMobs entity.", EcoMobsKillingTask.SCHEMA);
         this.plugin = plugin;
-
-        super.addConfigValidator(TaskUtils.useRequiredConfigValidator(this, "id", "ids"));
-        super.addConfigValidator(TaskUtils.useRequiredConfigValidator(this, "amount"));
-        super.addConfigValidator(TaskUtils.useIntegerConfigValidator(this, "amount"));
-        super.addConfigValidator(TaskUtils.useEnumConfigValidator(this, TaskUtils.StringMatchMode.class, "id-match-mode", null, false));
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -44,14 +38,14 @@ public final class EcoMobsKillingTaskType extends BukkitTaskType {
         LivingMob mob = event.getMob();
         EcoMob ecoMob = mob.getMob();
 
-        for (TaskUtils.PendingTask pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, this, TaskConstraintSet.ALL)) {
+        for (TaskUtils.PendingTask<EcoMobsKillingTask> pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, this, TaskConstraintSet.ALL)) {
             Quest quest = pendingTask.quest();
-            Task task = pendingTask.task();
+            EcoMobsKillingTask task = pendingTask.task();
             TaskProgress taskProgress = pendingTask.taskProgress();
 
             super.debug("Player killed EcoMobs mob '" + mob.getDisplayName() + "' (id = " + mob.getMob().getID() + ")", quest.getId(), task.getId(), player.getUniqueId());
 
-            if (!TaskUtils.matchString(this, pendingTask, ecoMob.getID(), player.getUniqueId(), "id", "ids", false, "id-match-mode", false)) {
+            if (!TaskUtils.matchString(this, pendingTask, task.ids, task.idMatchMode, ecoMob.getID(), player.getUniqueId(), false, false)) {
                 super.debug("Continuing...", quest.getId(), task.getId(), player.getUniqueId());
                 continue;
             }
@@ -59,7 +53,7 @@ public final class EcoMobsKillingTaskType extends BukkitTaskType {
             int progress = TaskUtils.incrementIntegerTaskProgress(taskProgress);
             super.debug("Incrementing task progress (now " + progress + ")", quest.getId(), task.getId(), player.getUniqueId());
 
-            int amount = (int) task.getConfigValue("amount");
+            int amount = task.amount;
             if (progress >= amount) {
                 super.debug("Marking task as complete", quest.getId(), task.getId(), player.getUniqueId());
                 taskProgress.setCompleted(true);

@@ -7,7 +7,6 @@ import com.leonardobishop.quests.bukkit.util.TaskUtils;
 import com.leonardobishop.quests.common.player.QPlayer;
 import com.leonardobishop.quests.common.player.questprogressfile.TaskProgress;
 import com.leonardobishop.quests.common.quest.Quest;
-import com.leonardobishop.quests.common.quest.Task;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Event;
 import org.bukkit.event.EventPriority;
@@ -19,7 +18,7 @@ import java.util.ArrayList;
 import java.util.Set;
 import java.util.UUID;
 
-public final class FabledSkyBlockLevelTaskType extends BukkitTaskType {
+public final class FabledSkyBlockLevelTaskType extends BukkitTaskType<FabledSkyBlockLevelTask> {
 
     private final BukkitQuestsPlugin plugin;
     private Method getIslandMethod;
@@ -30,11 +29,8 @@ public final class FabledSkyBlockLevelTaskType extends BukkitTaskType {
 
     @SuppressWarnings("unchecked")
     public FabledSkyBlockLevelTaskType(BukkitQuestsPlugin plugin) {
-        super("fabledskyblock_level", TaskUtils.TASK_ATTRIBUTION_STRING, "Reach a certain island level for FabledSkyBlock.");
+        super("fabledskyblock_level", TaskUtils.TASK_ATTRIBUTION_STRING, "Reach a certain island level for FabledSkyBlock.", FabledSkyBlockLevelTask.SCHEMA);
         this.plugin = plugin;
-
-        super.addConfigValidator(TaskUtils.useRequiredConfigValidator(this, "level"));
-        super.addConfigValidator(TaskUtils.useIntegerConfigValidator(this, "level"));
 
         Class<? extends Event> eventClass = (Class<? extends Event>) CompatUtils.getFirstClassAvailable(
                 "com.craftaro.skyblock.api.event.island.IslandLevelChangeEvent", // FabledSkyBlock 3
@@ -108,9 +104,9 @@ public final class FabledSkyBlockLevelTaskType extends BukkitTaskType {
             return;
         }
 
-        for (TaskUtils.PendingTask pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, this)) {
+        for (TaskUtils.PendingTask<FabledSkyBlockLevelTask> pendingTask : TaskUtils.getApplicableTasks(player, qPlayer, this)) {
             Quest quest = pendingTask.quest();
-            Task task = pendingTask.task();
+            FabledSkyBlockLevelTask task = pendingTask.task();
             TaskProgress taskProgress = pendingTask.taskProgress();
 
             super.debug("Player island level updated to " + level, quest.getId(), task.getId(), player.getUniqueId());
@@ -118,7 +114,7 @@ public final class FabledSkyBlockLevelTaskType extends BukkitTaskType {
             taskProgress.setProgress(level);
             super.debug("Updating task progress (now " + level + ")", quest.getId(), task.getId(), player.getUniqueId());
 
-            int islandLevelNeeded = (int) task.getConfigValue("level");
+            int islandLevelNeeded = task.level;
             if (level >= islandLevelNeeded) {
                 super.debug("Marking task as complete", quest.getId(), task.getId(), player.getUniqueId());
                 taskProgress.setProgress(islandLevelNeeded);
